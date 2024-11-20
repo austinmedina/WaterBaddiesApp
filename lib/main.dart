@@ -35,7 +35,11 @@ class WaterBaddiesState extends ChangeNotifier {
     notifyListeners();  // Notify listeners when the device is updated
   }
 
-  Future<Map<String, List<List<int>>>> fetchData(BluetoothDevice device) async {
+  void updateValues(List<int> value) {
+    print("Updated");
+  }
+
+  Future<Map<String, List<List<int>>>> fetchCharacteristic(BluetoothDevice device) async {
     if (_device == null) throw Exception("Bluetooth device not set.");
     Map<String, List<List<int>>> data = {};
     List<BluetoothService> services = await device.discoverServices();
@@ -45,6 +49,8 @@ class WaterBaddiesState extends ChangeNotifier {
       var characteristics = service.characteristics;
       
       for (BluetoothCharacteristic c in characteristics) {
+        c.setNotifyValue(true);
+        c.lastValueStream.listen(updateValues);
         List<int> value = await c.read();
         serviceData.add(value);
       }
@@ -54,6 +60,7 @@ class WaterBaddiesState extends ChangeNotifier {
     
     return data;
   }
+
 }
 
 class BaddiesHomePage extends StatefulWidget {
@@ -222,23 +229,32 @@ class TestBluetooth extends StatefulWidget {
 }
 
 class _TestBluetoothState extends State<TestBluetooth> {
-  dynamic _appState;
-  late Future<Map<String, List<List<int>>>> _data;
 
   @override
-  initState() {
-    super.initState();
-    _appState = context.watch<WaterBaddiesState>();
-    _data = _appState.fetchData(_appState.device);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Now you can safely use context to watch or access inherited widgets
+    
+    // Since fetchData is async, we call it here and store the result in _data
+    
   }
 
   @override
   Widget build(BuildContext context) {
+    var appState = context.watch<WaterBaddiesState>();
+    var data;
+    BluetoothDevice? device = appState.device;
+    if (device != null) {
+      data = appState.fetchCharacteristic(device);
+    } else {
+      data = null;
+    }
+
     return DefaultTextStyle(
       style: Theme.of(context).textTheme.displayMedium!, 
       textAlign: TextAlign.center,
       child: FutureBuilder<Map<String, List<List<int>>>>(
-        future: _data,
+        future: data,
         builder: (BuildContext context, AsyncSnapshot<Map<String, List<List<int>>>> snapshot) {
           List<Widget> children;
           if (snapshot.connectionState == ConnectionState.waiting) {
