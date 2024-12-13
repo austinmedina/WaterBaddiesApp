@@ -287,7 +287,7 @@ class _TestBluetoothState extends State<TestBluetooth> {
             // Handle case where snapshot has no data (unlikely here)
             children = <Widget>[Center(child: Text('No data available.'))];
           }
-          children.add(BarChart());
+          children.add(BarChart({'Cadmium': '10'}));
           children.add(ExpansionTile(
             title: Text("Microplastics"),
             subtitle: Text("More Information"),
@@ -356,7 +356,7 @@ class BigCard extends StatelessWidget {
 }
 
 class BarChart extends StatelessWidget {
-  const BarChart({super.key, this.prop});
+  const BarChart({super.key});
 
   Map<String, int> testMap = {'Cadmium': 10};
 
