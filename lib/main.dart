@@ -39,27 +39,38 @@ class WaterBaddiesState extends ChangeNotifier {
     print("Updated");
   }
 
-  Future<Map<String, List<List<int>>>> fetchCharacteristic(BluetoothDevice device) async {
+  Future<Map<String, String>> fetchCharacteristic(BluetoothDevice device) async {
     if (_device == null) throw Exception("Bluetooth device not set.");
-    Map<String, List<List<int>>> data = {};
+    
+    Map<String, String> data = {};
     List<BluetoothService> services = await device.discoverServices();
     
     for (BluetoothService service in services) {
-      List<List<int>> serviceData = [];
-      var characteristics = service.characteristics;
-      
-      for (BluetoothCharacteristic c in characteristics) {
-        c.setNotifyValue(true);
-        c.lastValueStream.listen(updateValues);
-        List<int> value = await c.read();
-        serviceData.add(value);
+      if (service.uuid.str == "00000001-710e-4a5b-8d75-3e5b444bc3cf") {
+        var characteristics = service.characteristics;
+        
+        for (BluetoothCharacteristic c in characteristics) {
+          // Check if the characteristic has the 'read' property
+          if (c.properties.read) {
+            // Read the characteristic value
+            List<int> charValue = await c.read();
+            String asciiString = String.fromCharCodes(charValue);
+
+            for (BluetoothDescriptor desc in c.descriptors) {
+              List<int> descriptionValue = await desc.read();  
+              if (!descriptionValue.every((value) => value == 0)) {
+                String asciiDescription = String.fromCharCodes(descriptionValue);
+                data[asciiDescription] = asciiString;
+              } 
+            }
+          }
+        }
       }
-      
-      data[service.toString()] = serviceData;
     }
     
     return data;
   }
+
 
 }
 
@@ -225,7 +236,7 @@ class TestBluetooth extends StatefulWidget {
   const TestBluetooth({super.key});
 
   @override
-  State<TestBluetooth> createState() => _TestBluetoothState() ;
+  State<TestBluetooth> createState() => _TestBluetoothState();
 }
 
 class _TestBluetoothState extends State<TestBluetooth> {
@@ -233,10 +244,6 @@ class _TestBluetoothState extends State<TestBluetooth> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Now you can safely use context to watch or access inherited widgets
-    
-    // Since fetchData is async, we call it here and store the result in _data
-    
   }
 
   @override
@@ -253,9 +260,9 @@ class _TestBluetoothState extends State<TestBluetooth> {
     return DefaultTextStyle(
       style: Theme.of(context).textTheme.displayMedium!, 
       textAlign: TextAlign.center,
-      child: FutureBuilder<Map<String, List<List<int>>>>(
+      child: FutureBuilder<Map<String, String>>(
         future: data,
-        builder: (BuildContext context, AsyncSnapshot<Map<String, List<List<int>>>> snapshot) {
+        builder: (BuildContext context, AsyncSnapshot<Map<String, String>> snapshot) {
           List<Widget> children;
           if (snapshot.connectionState == ConnectionState.waiting) {
             children = <Widget>[Center(child: CircularProgressIndicator())];
@@ -268,34 +275,31 @@ class _TestBluetoothState extends State<TestBluetooth> {
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Text('You have '
-                    '${data.keys.length} services:'),
+                    '${data.keys.length} characteristics:'),
               )];
-            for (String serv in data.keys) {
-              List<Widget> deepChildren = [];
-              if (data[serv]!.isNotEmpty) {
-                for (var charc in data[serv]!) {
-                  deepChildren.add(ListTile(
-                    title: Text(charc.toString()),
-                  ));
-                }
-              }
-              children.add(ListView(
-                padding: const EdgeInsets.all(8),
-                children: [
-                  ListTile(title: Text(serv),),
-                  SizedBox(
-                    child: ListView(
-                      padding: const EdgeInsets.all(8),
-                      children: deepChildren,
-                    ),
-                  ),
-                ],
+            for (String description in data.keys) {
+              children.add(ListTile(
+                title: Text(description),
+                subtitle: Text(data[description]!),
               ));
-            } 
+            }
           } else {
             // Handle case where snapshot has no data (unlikely here)
             children = <Widget>[Center(child: Text('No data available.'))];
           }
+          children.add(BarChart());
+          children.add(ExpansionTile(
+            title: Text("Microplastics"),
+            subtitle: Text("More Information"),
+            ));
+          children.add(ExpansionTile(
+            title: Text("Metals"),
+            subtitle: Text("More Information"),
+            ));
+          children.add(ExpansionTile(
+            title: Text("Inorganics"),
+            subtitle: Text("More Information"),
+            ));
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -305,6 +309,20 @@ class _TestBluetoothState extends State<TestBluetooth> {
         },
       ),
     );
+  }
+}
+
+class History extends StatefulWidget {
+  const History({super.key});
+
+  @override
+  State<History> createState() => _HistoryState();
+}
+
+class _HistoryState extends State<History> {
+  @override
+  Widget build(BuildContext context) {
+    throw UnimplementedError();
   }
 }
 
@@ -334,5 +352,17 @@ class BigCard extends StatelessWidget {
           semanticsLabel: "${pair.first} ${pair.second}",),
       ),
     );
+  }
+}
+
+class BarChart extends StatelessWidget {
+  const BarChart({super.key, this.prop});
+
+  Map<String, int> testMap = {'Cadmium': 10};
+
+  @override
+  Widget build(BuildContext context) {
+    
+    throw UnimplementedError();
   }
 }
