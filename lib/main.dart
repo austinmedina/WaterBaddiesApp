@@ -1,10 +1,14 @@
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'screens/bluetooth/bluetoothBar.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
-void main() => runApp(const WaterBaddiesApp());
+import 'screens/bluetooth/bluetoothBar.dart';
+import 'screens/home/barChart.dart';
+
+void main() {
+  return runApp(const WaterBaddiesApp());
+}
 
 class WaterBaddiesApp extends StatelessWidget {
   const WaterBaddiesApp({super.key});
@@ -70,8 +74,6 @@ class WaterBaddiesState extends ChangeNotifier {
     
     return data;
   }
-
-
 }
 
 class BaddiesHomePage extends StatefulWidget {
@@ -93,7 +95,7 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
       case 2:
         page = TestBluetooth();
       case 3:
-        page = Placeholder();
+        page = BarChart();
       default:
         throw UnimplementedError('no widget for $currentPageIndex');
     }
@@ -126,15 +128,15 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
             },
             destinations: const <Widget>[
               NavigationDestination(
-                icon: Icon(Icons.home),
+                icon: Icon(Icons.home_outlined),
                 label: 'Home',
               ),
               NavigationDestination(
-                icon: Icon(Icons.safety_check),
+                icon: Icon(Icons.history),
                 label: 'Microplastics',
               ),
               NavigationDestination(
-                icon: Icon(Icons.stadium),
+                icon: Icon(Icons.info_outline),
                 label: 'Metals',
               ),
               NavigationDestination(
@@ -287,11 +289,15 @@ class _TestBluetoothState extends State<TestBluetooth> {
             // Handle case where snapshot has no data (unlikely here)
             children = <Widget>[Center(child: Text('No data available.'))];
           }
-          children.add(BarChart({'Cadmium': '10'}));
-          children.add(ExpansionTile(
-            title: Text("Microplastics"),
-            subtitle: Text("More Information"),
-            ));
+          children.add(ListBody(
+            children: [
+              BarChart(),
+              ExpansionTile(
+                title: Text("Microplastics"),
+                subtitle: Text("More Information"),
+                )
+            ],
+          ));
           children.add(ExpansionTile(
             title: Text("Metals"),
             subtitle: Text("More Information"),
@@ -355,14 +361,3 @@ class BigCard extends StatelessWidget {
   }
 }
 
-class BarChart extends StatelessWidget {
-  const BarChart({super.key});
-
-  Map<String, int> testMap = {'Cadmium': 10};
-
-  @override
-  Widget build(BuildContext context) {
-    
-    throw UnimplementedError();
-  }
-}
