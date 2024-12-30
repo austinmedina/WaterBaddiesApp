@@ -1,4 +1,3 @@
-import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -89,13 +88,11 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
     Widget page;
     switch (currentPageIndex) {
       case 0:
-        page = Placeholder();
+        page = TestBluetooth();
       case 1:
         page = Placeholder();
       case 2:
-        page = TestBluetooth();
-      case 3:
-        page = BarChart();
+        page = Placeholder();
       default:
         throw UnimplementedError('no widget for $currentPageIndex');
     }
@@ -133,15 +130,11 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
               ),
               NavigationDestination(
                 icon: Icon(Icons.history),
-                label: 'Microplastics',
+                label: 'History',
               ),
               NavigationDestination(
                 icon: Icon(Icons.info_outline),
-                label: 'Metals',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.play_lesson_outlined),
-                label: 'Inorganics',
+                label: 'About',
               ),
             ],
           ),
@@ -161,79 +154,6 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
   }
 }
 
-// class GeneratorPage extends StatelessWidget {
-//   @override
-//   Widget build(BuildContext context) {
-//     var appState = context.watch<WaterBaddiesState>();
-//     var pair = appState.current;
-
-//     IconData icon;
-//     if (appState.favorites.contains(pair)) {
-//       icon = Icons.favorite;
-//     } else {
-//       icon = Icons.favorite_border;
-//     }
-
-//     return Center(
-//       child: Column(
-//         mainAxisAlignment: MainAxisAlignment.center,
-//         children: [
-//           BigCard(pair: pair),
-//           SizedBox(height: 10),
-//           Row(
-//             mainAxisSize: MainAxisSize.min,
-//             children: [
-//               ElevatedButton.icon(
-//                 onPressed: () {
-//                   appState.toggleFavorite();
-//                 },
-//                 icon: Icon(icon),
-//                 label: Text('Like'),
-//               ),
-//               SizedBox(width: 10),
-//               ElevatedButton(
-//                 onPressed: () {
-//                   appState.getNext();
-//                 },
-//                 child: Text('Next'),
-//               ),
-//             ],
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-
-// class FavoritesPage extends StatelessWidget {
-//   @override
-//   Widget build(BuildContext context) {
-//     var appState = context.watch<WaterBaddiesState>();
-
-//     if (appState.favorites.isEmpty) {
-//       return Center(
-//         child: Text('No favorites yet.'),
-//       );
-//     }
-
-//     return ListView(
-//       children: [
-//         Padding(
-//           padding: const EdgeInsets.all(20),
-//           child: Text('You have '
-//               '${appState.favorites.length} favorites:'),
-//         ),
-        
-//         for (var pair in appState.favorites) 
-//           ListTile(
-//             leading: Icon(Icons.favorite),
-//             title: Text(pair.asLowerCase)
-//           )
-//       ],
-//     );
-//   }
-// }
-
 class TestBluetooth extends StatefulWidget {
   const TestBluetooth({super.key});
 
@@ -252,6 +172,13 @@ class _TestBluetoothState extends State<TestBluetooth> {
   Widget build(BuildContext context) {
     var appState = context.watch<WaterBaddiesState>();
     var data;
+    BooleanWrapper showMetalChart = BooleanWrapper(false);
+    BooleanWrapper showInorganicsChart = BooleanWrapper(false);
+    BooleanWrapper showPlasticChart = BooleanWrapper(false);
+    BooleanWrapper showMetalInfo = BooleanWrapper(false);
+    BooleanWrapper showInorganicsInfo = BooleanWrapper(false);
+    BooleanWrapper showPlasticInfo = BooleanWrapper(false);
+
     BluetoothDevice? device = appState.device;
     if (device != null) {
       data = appState.fetchCharacteristic(device);
@@ -286,27 +213,39 @@ class _TestBluetoothState extends State<TestBluetooth> {
               ));
             }
           } else {
-            // Handle case where snapshot has no data (unlikely here)
+            //Handle case where snapshot has no data
             children = <Widget>[Center(child: Text('No data available.'))];
           }
           children.add(ListBody(
             children: [
-              BarChart(),
-              ExpansionTile(
-                title: Text("Microplastics"),
-                subtitle: Text("More Information"),
-                )
+              InfoCard(
+                showChart: showMetalChart, 
+                showInfo: showMetalInfo, 
+                cardTitle: "Metals", 
+                barChartData: [
+                  {'name': 'Cadmium', 'maxQuantity': 10, 'quantity': 8.5}, 
+                  {'name': 'Arsenic', 'maxQuantity': 15, 'quantity': 12.5},
+                  {'name': 'Lead', 'maxQuantity': 5, 'quantity': 7.5}
+                ]
+              ),
+              InfoCard(
+                showChart: showInorganicsChart,
+                showInfo: showInorganicsInfo,
+                cardTitle: "Inorganics",
+                barChartData: [
+                  {'name': 'Nirtrites', 'maxQuantity': 10, 'quantity': 13.5}, 
+                  {'name': 'Nitrates', 'maxQuantity': 15, 'quantity': 1.5}
+                ]
+              ),
+              InfoCard(
+                showChart: showPlasticChart,
+                showInfo: showPlasticInfo,
+                cardTitle: "Inorganics",
+                barChartData: [{'name': 'Microplastics', 'maxQuantity': 11, 'quantity': 11.5}],
+              )
             ],
           ));
-          children.add(ExpansionTile(
-            title: Text("Metals"),
-            subtitle: Text("More Information"),
-            ));
-          children.add(ExpansionTile(
-            title: Text("Inorganics"),
-            subtitle: Text("More Information"),
-            ));
-          return Center(
+          return SingleChildScrollView(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: children,
@@ -332,32 +271,74 @@ class _HistoryState extends State<History> {
   }
 }
 
-class BigCard extends StatelessWidget {
-  const BigCard({
+class BooleanWrapper {
+  bool value;
+  BooleanWrapper(this.value);
+}
+
+class InfoCard extends StatefulWidget {
+  const InfoCard({
     super.key,
-    required this.pair,
+    required this.showChart,
+    required this.showInfo,
+    required this.cardTitle,
+    required this.barChartData,
   });
 
-  final WordPair pair;
+  final BooleanWrapper showChart;
+  final BooleanWrapper showInfo;
+  final String cardTitle;
+  final List<Map<String, dynamic>> barChartData;
 
   @override
+  State<InfoCard> createState() => _InfoCardState();
+}
+
+class _InfoCardState extends State<InfoCard> {
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    final style = theme.textTheme.displayMedium!.copyWith(
-      color: theme.colorScheme.onPrimary,
-    );
-
     return Card(
-      color: theme.colorScheme.primary,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Text(
-          pair.asLowerCase, 
-          style: style,
-          semanticsLabel: "${pair.first} ${pair.second}",),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          ListTile(
+            leading: Icon(Icons.barcode_reader),
+            title: Text(widget.cardTitle),
+            subtitle: Text("More Information"),
+          ),
+          Row (
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                child: Text("View Chart"),
+                onPressed: () {
+                  setState(() {
+                    widget.showChart.value = !widget.showChart.value;
+                  });
+                },
+              ),
+              SizedBox(width: 8),
+              TextButton(
+                child: Text("More Information"),
+                onPressed: () {
+                  setState(() {
+                    widget.showInfo.value = !widget.showInfo.value;
+                  });
+                },
+              )
+            ]
+          ),
+          if (widget.showChart.value) 
+            BarChart(
+              barData: widget.barChartData
+            ),
+          if (widget.showInfo.value)
+            Card(
+              child: Text("Metal Information")
+            ),
+        ],
       ),
-    );
+    ); 
   }
 }
 

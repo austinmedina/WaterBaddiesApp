@@ -2,16 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 class BarChart extends StatelessWidget {
-  BarChart({super.key});
+  BarChart({Key? key, required this.barData}) : super(key: key);
 
-  final List<Map> testMap = 
-    [{'name': 'Cadmium', 'maxQuantity': 10, 'quantity': 8.5}, 
-                            {'name': 'Arsenic', 'maxQuantity': 15, 'quantity': 12.5},
-                            {'name': 'Lead', 'maxQuantity': 5, 'quantity': 7.5}];
+  final List<Map> barData;
 
   @override
   Widget build(BuildContext context) {
-    final double maxY = testMap
+    final double maxY = barData
             .map((data) => data['maxQuantity'] as num)
             .reduce((a, b) => a > b ? a : b) *
         1.2;
@@ -28,7 +25,7 @@ class BarChart extends StatelessWidget {
             ),
             series: <CartesianSeries<Map, String>>[
               ColumnSeries(
-                dataSource: testMap,
+                dataSource: barData,
                 xValueMapper: (Map data, int index) => data['name'],
                 yValueMapper: (Map data, int index) => data['quantity'],
                 color: Colors.blue,
