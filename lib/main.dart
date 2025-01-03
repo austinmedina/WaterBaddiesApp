@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -33,45 +34,69 @@ class WaterBaddiesState extends ChangeNotifier {
 
   BluetoothDevice? get device => _device;
 
+  Map<String, double> characteristicsData = {};
+  Map<BluetoothCharacteristic, StreamSubscription<List<int>>> subscriptions = {};
+
   set device(BluetoothDevice? newDevice) {
     _device = newDevice;
     notifyListeners();  // Notify listeners when the device is updated
   }
 
-  void updateValues(List<int> value) {
-    print("Updated");
-  }
-
-  Future<Map<String, String>> fetchCharacteristic(BluetoothDevice device) async {
+  void fetchCharacteristic(BluetoothDevice device) async {
     if (_device == null) throw Exception("Bluetooth device not set.");
     
-    Map<String, String> data = {};
     List<BluetoothService> services = await device.discoverServices();
     
     for (BluetoothService service in services) {
       if (service.uuid.str == "00000001-710e-4a5b-8d75-3e5b444bc3cf") {
-        var characteristics = service.characteristics;
-        
-        for (BluetoothCharacteristic c in characteristics) {
-          // Check if the characteristic has the 'read' property
-          if (c.properties.read) {
-            // Read the characteristic value
-            List<int> charValue = await c.read();
-            String asciiString = String.fromCharCodes(charValue);
+        try {
+          for (BluetoothCharacteristic c in service.characteristics) {
+            if (c.properties.read) {
+              // Read the initial value
+              
+              List<int> charValue = await c.read();
+              try {
+                String charValueString = String.fromCharCodes(charValue);
+                double charValueInt = double.parse(charValueString);
 
-            for (BluetoothDescriptor desc in c.descriptors) {
-              List<int> descriptionValue = await desc.read();  
-              if (!descriptionValue.every((value) => value == 0)) {
-                String asciiDescription = String.fromCharCodes(descriptionValue);
-                data[asciiDescription] = asciiString;
-              } 
+                // Read descriptors and update the data map
+                for (BluetoothDescriptor desc in c.descriptors) {
+                  List<int> descValue = await desc.read();
+                  if ((descValue.length > 5) && (!descValue.every((value) => value == 0))) {
+                    String descString = String.fromCharCodes(descValue);
+                    characteristicsData[descString] = charValueInt;
+                    //Add value to history
+                  }
+                } 
+
+                // Subscribe to notifications if the characteristic supports it
+                // if (c.properties.notify) {
+                //   await c.setNotifyValue(true);
+                //   subscriptions[c] = c.lastValueStream.listen((value) async {
+                //     String updatedCharValue = String.fromCharCodes(value);
+
+                //     // Update descriptors during notifications
+                //     for (BluetoothDescriptor desc in c.descriptors) {
+                //       List<int> descValue = await desc.read();
+                //       if (!descValue.every((v) => v == 0)) {
+                //         String descString = String.fromCharCodes(descValue);
+                //         characteristicsData[descString] = updatedCharValue;
+                //         //Add the value to history
+                //       }
+                //     }
+                //     notifyListeners(); // Notify UI of updated data
+                //   });
+                // }
+              } catch (e) {
+                print("Error parsing");
+              }
             }
           }
-        }
+        } catch (e) {
+          print("Error reading characteristic: $e");
+        } 
       }
     }
-    
-    return data;
   }
 }
 
@@ -85,10 +110,11 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    var appState = context.watch<WaterBaddiesState>();
     Widget page;
     switch (currentPageIndex) {
       case 0:
-        page = TestBluetooth();
+        page = WaterBaddiesInfo(appState: appState,);
       case 1:
         page = Placeholder();
       case 2:
@@ -154,24 +180,46 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
   }
 }
 
-class TestBluetooth extends StatefulWidget {
-  const TestBluetooth({super.key});
+class WaterBaddiesInfo extends StatefulWidget {
+  final WaterBaddiesState appState;
+  const WaterBaddiesInfo({super.key, required this.appState});
 
   @override
-  State<TestBluetooth> createState() => _TestBluetoothState();
+  State<WaterBaddiesInfo> createState() => _WaterBaddiesInfoState();
 }
 
-class _TestBluetoothState extends State<TestBluetooth> {
+class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
+  bool _dataAvailable = false;
+  Map<String, double> _displayedData = {};
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
+  void initState() {
+    super.initState();
+    widget.appState.addListener(_updateLatestData);
+  }
+
+  @override
+  void dispose() {
+    widget.appState.removeListener(_updateLatestData);
+    super.dispose();
+  }
+
+  void _updateLatestData() {
+    setState(() {
+      _dataAvailable = true;
+    });
+  }
+
+  void _fetchNewData() {
+    setState(() {
+      _displayedData = Map.from(widget.appState.characteristicsData);
+      _dataAvailable = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    var appState = context.watch<WaterBaddiesState>();
-    var data;
+
     BooleanWrapper showMetalChart = BooleanWrapper(false);
     BooleanWrapper showInorganicsChart = BooleanWrapper(false);
     BooleanWrapper showPlasticChart = BooleanWrapper(false);
@@ -179,72 +227,76 @@ class _TestBluetoothState extends State<TestBluetooth> {
     BooleanWrapper showInorganicsInfo = BooleanWrapper(false);
     BooleanWrapper showPlasticInfo = BooleanWrapper(false);
 
-    BluetoothDevice? device = appState.device;
+    BluetoothDevice? device = widget.appState.device;
     if (device != null) {
-      data = appState.fetchCharacteristic(device);
+      widget.appState.fetchCharacteristic(device);
+      _dataAvailable = true;
     } else {
-      data = null;
+      return Center(child: Text("Please Connect a Bluetooth Device"),);
     }
 
     return DefaultTextStyle(
-      style: Theme.of(context).textTheme.displayMedium!, 
+      style: Theme.of(context).textTheme.displayMedium!,
       textAlign: TextAlign.center,
-      child: FutureBuilder<Map<String, String>>(
-        future: data,
-        builder: (BuildContext context, AsyncSnapshot<Map<String, String>> snapshot) {
-          List<Widget> children;
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            children = <Widget>[Center(child: CircularProgressIndicator())];
-          } else if (snapshot.hasError) {
-            // Error message if there was an error
-            children = <Widget>[Center(child: Text('Error: ${snapshot.error}'))];
-          } else if (snapshot.hasData) {
-            var data = snapshot.data!;
-            children = <Widget>[
+      child: AnimatedBuilder(
+        animation: widget.appState,
+        builder: (BuildContext context, Widget? child) {
+          List<Widget> children = [];
+
+          if (_displayedData.isEmpty && _dataAvailable) {
+            children.addAll([
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    "New data is available! Click below to update the display.",
+                    style: TextStyle(color: Colors.blue),
+                    ),
+                ),
+                ElevatedButton(
+                  onPressed: _fetchNewData,
+                  child: Text("Fetch New Data"),
+                )
+              ]);
+          } else if (_displayedData.isNotEmpty) {
+            children.add(
               Padding(
                 padding: const EdgeInsets.all(20),
-                child: Text('You have '
-                    '${data.keys.length} characteristics:'),
-              )];
-            for (String description in data.keys) {
-              children.add(ListTile(
-                title: Text(description),
-                subtitle: Text(data[description]!),
-              ));
-            }
-          } else {
-            //Handle case where snapshot has no data
-            children = <Widget>[Center(child: Text('No data available.'))];
-          }
-          children.add(ListBody(
-            children: [
+                child: Text('You have ${_displayedData.keys.length} characteristics:'),
+              ),
+            );
+            children.addAll([
               InfoCard(
-                showChart: showMetalChart, 
-                showInfo: showMetalInfo, 
-                cardTitle: "Metals", 
+                showChart: showMetalChart,
+                showInfo: showMetalInfo,
+                cardTitle: "Metals",
                 barChartData: [
-                  {'name': 'Cadmium', 'maxQuantity': 10, 'quantity': 8.5}, 
-                  {'name': 'Arsenic', 'maxQuantity': 15, 'quantity': 12.5},
-                  {'name': 'Lead', 'maxQuantity': 5, 'quantity': 7.5}
-                ]
+                  {'name': 'Cadmium', 'maxQuantity': 90, 'quantity': _displayedData["Metal Concentration"]},
+                  {'name': 'Arsenic', 'maxQuantity': 95, 'quantity': _displayedData["Metal Concentration"]},
+                  {'name': 'Lead', 'maxQuantity': 60, 'quantity': _displayedData["Metal Concentration"]}
+                ],
               ),
               InfoCard(
                 showChart: showInorganicsChart,
                 showInfo: showInorganicsInfo,
                 cardTitle: "Inorganics",
                 barChartData: [
-                  {'name': 'Nirtrites', 'maxQuantity': 10, 'quantity': 13.5}, 
-                  {'name': 'Nitrates', 'maxQuantity': 15, 'quantity': 1.5}
-                ]
+                  {'name': 'Nirtrites', 'maxQuantity': 75, 'quantity': _displayedData["Inorganics Concentration"]},
+                  {'name': 'Nitrates', 'maxQuantity': 80, 'quantity': _displayedData["Inorganics Concentration"]}
+                ],
               ),
               InfoCard(
                 showChart: showPlasticChart,
                 showInfo: showPlasticInfo,
-                cardTitle: "Inorganics",
-                barChartData: [{'name': 'Microplastics', 'maxQuantity': 11, 'quantity': 11.5}],
-              )
-            ],
-          ));
+                cardTitle: "Microplastics",
+                barChartData: [
+                  {'name': 'Microplastics', 'maxQuantity': 110, 'quantity': _displayedData["Microplastic Concentration"]}
+                ],
+              ),
+            ]);
+          } else {
+            children.add(Center(child: Text("No data available"),));
+          }
+
           return SingleChildScrollView(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -254,6 +306,7 @@ class _TestBluetoothState extends State<TestBluetooth> {
         },
       ),
     );
+
   }
 }
 
