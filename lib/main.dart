@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'utils/utils.dart';
+import 'package:collection/collection.dart';
 
 import 'screens/bluetooth/bluetoothBar.dart';
 import 'screens/home/barChart.dart';
@@ -21,7 +24,7 @@ class WaterBaddiesApp extends StatelessWidget {
         title: 'Water Baddies App',
         theme: ThemeData(
           useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 6, 24, 122)),
+          colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 16, 122, 6)),
         ),
         home: BaddiesHomePage(),
       ),
@@ -34,68 +37,84 @@ class WaterBaddiesState extends ChangeNotifier {
 
   BluetoothDevice? get device => _device;
 
-  Map<String, double> characteristicsData = {};
-  Map<BluetoothCharacteristic, StreamSubscription<List<int>>> subscriptions = {};
-
   set device(BluetoothDevice? newDevice) {
+    if (newDevice == null) throw Exception("Bluetooth device is null.");
     _device = newDevice;
+    fetchCharacteristic(_device!);
     notifyListeners();  // Notify listeners when the device is updated
   }
 
+  Map<String, double> _characteristicsData = {};
+
+  Map<String, double> get characteristicsData => Map.from(_characteristicsData);
+
+  Map<BluetoothCharacteristic, StreamSubscription<List<int>>> subscriptions = {};
+
   void fetchCharacteristic(BluetoothDevice device) async {
     if (_device == null) throw Exception("Bluetooth device not set.");
-    
-    List<BluetoothService> services = await device.discoverServices();
-    
-    for (BluetoothService service in services) {
-      if (service.uuid.str == "00000001-710e-4a5b-8d75-3e5b444bc3cf") {
-        try {
-          for (BluetoothCharacteristic c in service.characteristics) {
-            if (c.properties.read) {
-              // Read the initial value
-              
-              List<int> charValue = await c.read();
-              try {
-                String charValueString = String.fromCharCodes(charValue);
-                double charValueInt = double.parse(charValueString);
 
-                // Read descriptors and update the data map
-                for (BluetoothDescriptor desc in c.descriptors) {
-                  List<int> descValue = await desc.read();
-                  if ((descValue.length > 5) && (!descValue.every((value) => value == 0))) {
-                    String descString = String.fromCharCodes(descValue);
-                    characteristicsData[descString] = charValueInt;
-                    //Add value to history
+    final targetServiceUuid = "00000001-710e-4a5b-8d75-3e5b444bc3cf"; // Your service UUID
+
+    // Map of characteristic UUIDs to descriptor UUIDs (and optionally names)
+    final targetCharacteristics = {
+      "00000002-710e-4a5b-8d75-3e5b444bc3cf": "2901", // Microplastic
+      "00000002-810e-4a5b-8d75-3e5b444bc3cf": "2904", // Metal
+      "00000002-910e-4a5b-8d75-3e5b444bc3cf": "2903", // Inorganics
+    };
+
+    try {
+      final services = await device.discoverServices();
+
+      final service = services.where((s) => s.uuid.toString() == targetServiceUuid).firstOrNull;
+
+      if (service != null) {
+        for (final characteristic in service.characteristics) {
+          final targetDescriptorUuid = targetCharacteristics[characteristic.uuid.toString()];
+
+          if (targetDescriptorUuid != null) { // Only process if a target descriptor is defined
+            if (characteristic.properties.read) {
+              try{
+                final charValue = await characteristic.read();
+                final charValueString = String.fromCharCodes(charValue);
+                final charValueDouble = double.tryParse(charValueString) ?? 0.0;
+
+                for (final descriptor in characteristic.descriptors) {
+                  if (descriptor.uuid.toString().toUpperCase() == targetDescriptorUuid.toUpperCase()) { // Case-insensitive comparison
+                    final descValue = await descriptor.read();
+                    if (descValue.isNotEmpty && !descValue.every((v) => v == 0)) {
+                      final descString = String.fromCharCodes(descValue);
+                      _characteristicsData[descString] = charValueDouble;
+                    }
                   }
-                } 
+                }
 
-                // Subscribe to notifications if the characteristic supports it
-                // if (c.properties.notify) {
-                //   await c.setNotifyValue(true);
-                //   subscriptions[c] = c.lastValueStream.listen((value) async {
-                //     String updatedCharValue = String.fromCharCodes(value);
+                if (characteristic.properties.notify) {
+                  await characteristic.setNotifyValue(true);
+                  subscriptions[characteristic] = characteristic.lastValueStream.listen((value) async {
+                    final updatedCharValue = String.fromCharCodes(value);
+                    final updatedDoubleValue = double.tryParse(updatedCharValue) ?? 0.0;
 
-                //     // Update descriptors during notifications
-                //     for (BluetoothDescriptor desc in c.descriptors) {
-                //       List<int> descValue = await desc.read();
-                //       if (!descValue.every((v) => v == 0)) {
-                //         String descString = String.fromCharCodes(descValue);
-                //         characteristicsData[descString] = updatedCharValue;
-                //         //Add the value to history
-                //       }
-                //     }
-                //     notifyListeners(); // Notify UI of updated data
-                //   });
-                // }
-              } catch (e) {
-                print("Error parsing");
+                    for (final descriptor in characteristic.descriptors) {
+                      if (descriptor.uuid.toString().toUpperCase() == targetDescriptorUuid.toUpperCase()) {
+                        final descValue = await descriptor.read();
+                        if ((descValue as List).isNotEmpty && !(descValue as List).every((v) => v == 0)) {
+                          final descString = String.fromCharCodes(descValue);
+                          _characteristicsData[descString] = updatedDoubleValue;
+                        }
+                      }
+                    }
+                    notifyListeners();
+                  });
+                }
+              }catch(e){
+                print("Error reading characteristic: $e");
               }
             }
           }
-        } catch (e) {
-          print("Error reading characteristic: $e");
-        } 
+        }
       }
+    } catch (e) {
+      print("Error discovering services: $e");
     }
   }
 }
@@ -110,11 +129,10 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    var appState = context.watch<WaterBaddiesState>();
     Widget page;
     switch (currentPageIndex) {
       case 0:
-        page = WaterBaddiesInfo(appState: appState,);
+        page = WaterBaddiesInfo();
       case 1:
         page = Placeholder();
       case 2:
@@ -181,132 +199,163 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
 }
 
 class WaterBaddiesInfo extends StatefulWidget {
-  final WaterBaddiesState appState;
-  const WaterBaddiesInfo({super.key, required this.appState});
+  const WaterBaddiesInfo({super.key});
 
   @override
   State<WaterBaddiesInfo> createState() => _WaterBaddiesInfoState();
 }
 
 class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
-  bool _dataAvailable = false;
   Map<String, double> _displayedData = {};
+  WaterBaddiesState wbState = WaterBaddiesState();
+
+  BooleanWrapper showMetalChart = BooleanWrapper(false);
+  BooleanWrapper showInorganicsChart = BooleanWrapper(false);
+  BooleanWrapper showPlasticChart = BooleanWrapper(false);
+  BooleanWrapper showMetalInfo = BooleanWrapper(false);
+  BooleanWrapper showInorganicsInfo = BooleanWrapper(false);
+  BooleanWrapper showPlasticInfo = BooleanWrapper(false);
 
   @override
   void initState() {
     super.initState();
-    widget.appState.addListener(_updateLatestData);
+    wbState = context.read<WaterBaddiesState>(); // Initialize in initState
   }
 
-  @override
-  void dispose() {
-    widget.appState.removeListener(_updateLatestData);
-    super.dispose();
-  }
-
-  void _updateLatestData() {
-    setState(() {
-      _dataAvailable = true;
-    });
-  }
-
-  void _fetchNewData() {
-    setState(() {
-      _displayedData = Map.from(widget.appState.characteristicsData);
-      _dataAvailable = false;
-    });
+  void _updateDisplayedData() {
+    final newData = wbState.characteristicsData;
+    if (!mapEquals(_displayedData, newData)) { // Important check
+        _displayedData = Map.from(newData);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-
-    BooleanWrapper showMetalChart = BooleanWrapper(false);
-    BooleanWrapper showInorganicsChart = BooleanWrapper(false);
-    BooleanWrapper showPlasticChart = BooleanWrapper(false);
-    BooleanWrapper showMetalInfo = BooleanWrapper(false);
-    BooleanWrapper showInorganicsInfo = BooleanWrapper(false);
-    BooleanWrapper showPlasticInfo = BooleanWrapper(false);
-
-    BluetoothDevice? device = widget.appState.device;
-    if (device != null) {
-      widget.appState.fetchCharacteristic(device);
-      _dataAvailable = true;
-    } else {
-      return Center(child: Text("Please Connect a Bluetooth Device"),);
-    }
-
     return DefaultTextStyle(
       style: Theme.of(context).textTheme.displayMedium!,
       textAlign: TextAlign.center,
-      child: AnimatedBuilder(
-        animation: widget.appState,
-        builder: (BuildContext context, Widget? child) {
-          List<Widget> children = [];
-
-          if (_displayedData.isEmpty && _dataAvailable) {
-            children.addAll([
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(
-                    "New data is available! Click below to update the display.",
-                    style: TextStyle(color: Colors.blue),
-                    ),
-                ),
-                ElevatedButton(
-                  onPressed: _fetchNewData,
-                  child: Text("Fetch New Data"),
-                )
-              ]);
-          } else if (_displayedData.isNotEmpty) {
-            children.add(
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text('You have ${_displayedData.keys.length} characteristics:'),
-              ),
-            );
-            children.addAll([
-              InfoCard(
-                showChart: showMetalChart,
-                showInfo: showMetalInfo,
-                cardTitle: "Metals",
-                barChartData: [
-                  {'name': 'Cadmium', 'maxQuantity': 90, 'quantity': _displayedData["Metal Concentration"]},
-                  {'name': 'Arsenic', 'maxQuantity': 95, 'quantity': _displayedData["Metal Concentration"]},
-                  {'name': 'Lead', 'maxQuantity': 60, 'quantity': _displayedData["Metal Concentration"]}
-                ],
-              ),
-              InfoCard(
-                showChart: showInorganicsChart,
-                showInfo: showInorganicsInfo,
-                cardTitle: "Inorganics",
-                barChartData: [
-                  {'name': 'Nirtrites', 'maxQuantity': 75, 'quantity': _displayedData["Inorganics Concentration"]},
-                  {'name': 'Nitrates', 'maxQuantity': 80, 'quantity': _displayedData["Inorganics Concentration"]}
-                ],
-              ),
-              InfoCard(
-                showChart: showPlasticChart,
-                showInfo: showPlasticInfo,
-                cardTitle: "Microplastics",
-                barChartData: [
-                  {'name': 'Microplastics', 'maxQuantity': 110, 'quantity': _displayedData["Microplastic Concentration"]}
-                ],
-              ),
-            ]);
-          } else {
-            children.add(Center(child: Text("No data available"),));
-          }
-
-          return SingleChildScrollView(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: children,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Selector<WaterBaddiesState, BluetoothDevice?>(
+              selector: (context, state) => state.device,
+              builder: (context, device, child) {
+                return Text(device != null ? "Connected" : "Please Connect a Bluetooth Device");
+              },
             ),
-          );
-        },
-      ),
-    );
 
+            Selector<WaterBaddiesState, bool>(
+              selector: (context, state) => !mapEquals(state.characteristicsData, _displayedData) && state.characteristicsData.isNotEmpty,
+              builder: (context, hasNewData, child) {
+                if (hasNewData) {
+                  return Column(children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        "New data is available!",
+                        style: TextStyle(
+                          fontSize: 16, 
+                          color: const Color.fromARGB(255, 0, 0, 0),
+                        ),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: _updateDisplayedData,
+                      child: Text("Fetch New Data"),
+                    ),
+                  ]);
+                } else if (_displayedData.isEmpty) {
+                  return Column(
+                    children: [
+                      Text("No Data Available"),  
+                    ]
+                  );
+                } else {
+                  return const SizedBox.shrink();
+                }
+              }
+            ),
+
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text('You have ${_displayedData.keys.length} characteristics:'),
+            ),
+            if (_displayedData.isNotEmpty)
+              Column( // No need for a separate widget anymore
+                children: [
+                InfoCard(
+                  key: ValueKey("Metals${_displayedData["Metal Concentration"]}"),
+                  showChart: showMetalChart,
+                  showInfo: showMetalInfo,
+                  cardTitle: "Metals",
+                  barChartData: _displayedData.isEmpty
+                      ? []
+                      : _displayedData.containsKey("Metal Concentration")
+                          ? [
+                              {
+                                'name': 'Cadmium',
+                                'maxQuantity': 90,
+                                'quantity': _displayedData["Metal Concentration"]
+                              },
+                              {
+                                'name': 'Arsenic',
+                                'maxQuantity': 95,
+                                'quantity': _displayedData["Metal Concentration"]
+                              },
+                              {
+                                'name': 'Lead',
+                                'maxQuantity': 60,
+                                'quantity': _displayedData["Metal Concentration"]
+                              }
+                            ]
+                          : [], // Return empty list if key is missing
+                ),
+                InfoCard(
+                  key: ValueKey("Inorganics${_displayedData["Inorganics Concentration"]}"),
+                  showChart: showInorganicsChart,
+                  showInfo: showInorganicsInfo,
+                  cardTitle: "Inorganics",
+                  barChartData: _displayedData.isEmpty
+                      ? []
+                      : _displayedData.containsKey("Inorganics Concentration")
+                          ? [
+                              {
+                                'name': 'Nirtrites',
+                                'maxQuantity': 75,
+                                'quantity': _displayedData["Inorganics Concentration"]
+                              },
+                              {
+                                'name': 'Nitrates',
+                                'maxQuantity': 80,
+                                'quantity': _displayedData["Inorganics Concentration"]
+                              }
+                            ]
+                          : [], // Return empty list if key is missing
+                ),
+                InfoCard(
+                  key: ValueKey("Microplastics${_displayedData["Microplastic Concentration"]}"),
+                  showChart: showPlasticChart,
+                  showInfo: showPlasticInfo,
+                  cardTitle: "Microplastics",
+                  barChartData: _displayedData.isEmpty
+                      ? []
+                      : _displayedData.containsKey("Microplastic Concentration")
+                          ? [
+                              {
+                                'name': 'Microplastics',
+                                'maxQuantity': 110,
+                                'quantity': _displayedData["Microplastic Concentration"]
+                              }
+                            ]
+                          : [], // Return empty list if key is missing
+                ),
+              ]
+            )
+          ]
+        )
+      )
+    );
   }
 }
 
@@ -322,11 +371,6 @@ class _HistoryState extends State<History> {
   Widget build(BuildContext context) {
     throw UnimplementedError();
   }
-}
-
-class BooleanWrapper {
-  bool value;
-  BooleanWrapper(this.value);
 }
 
 class InfoCard extends StatefulWidget {
@@ -362,14 +406,19 @@ class _InfoCardState extends State<InfoCard> {
           Row (
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton(
-                child: Text("View Chart"),
-                onPressed: () {
-                  setState(() {
-                    widget.showChart.value = !widget.showChart.value;
-                  });
-                },
-              ),
+              widget.barChartData.isEmpty 
+                ? TextButton(
+                  child: Text("No Data"),
+                  onPressed: () {},
+                )
+                : TextButton(
+                  child: Text("View Chart"),
+                  onPressed: () {
+                    setState(() {
+                      widget.showChart.value = !widget.showChart.value;
+                    });
+                  },
+                ),
               SizedBox(width: 8),
               TextButton(
                 child: Text("More Information"),
@@ -381,17 +430,113 @@ class _InfoCardState extends State<InfoCard> {
               )
             ]
           ),
-          if (widget.showChart.value) 
+          
+          if (widget.barChartData.isNotEmpty && widget.showChart.value)
             BarChart(
-              barData: widget.barChartData
-            ),
+              key: ValueKey(widget.barChartData), // Key handles barChartData changes
+              barData: widget.barChartData,
+              showChart: widget.showChart,
+          ),
+
           if (widget.showInfo.value)
             Card(
-              child: Text("Metal Information")
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      // Use Expanded or Flexible to allow text to wrap
+                      Expanded( // Or Flexible(flex: 1,) for more control
+                        child: Image.asset("images/HeavyMetalsDrawing.jpg",
+                        fit: BoxFit.contain, // Important for image scaling
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row (
+                    children: [
+                      Expanded( // Or Flexible(flex: 2,) for more control
+                        child: Text(
+                          "Heavy Metals - Lead, Arsenic, and Cadmium",
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          softWrap: true, // Allow text to wrap to multiple lines
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16,),
+                  Row(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          _buildSectionTitle('Background'),
+                          _buildText('Natural Occurrence: These metals exist naturally in soil, rocks, and water at low concentrations.'),
+                          _buildText('Anthropogenic Sources: Human activities like mining, smelting, industrial production, waste disposal, and the use of pesticides and fertilizers contribute to elevated levels of these metals in the environment.'),
+                          _buildText('Persistence: Heavy metals are persistent pollutants, meaning they don\'t break down in the environment and can accumulate over time.'),
+
+                          _buildSectionTitle('Effects on Humans'),
+                          _buildSubSectionTitle('Lead'),
+                          _buildText('Sources: Old lead-based paint, contaminated water pipes, industrial emissions.'),
+                          _buildText('Effects: Neurological damage (especially in children), developmental problems, kidney damage, high blood pressure.'),
+
+                          _buildSubSectionTitle('Arsenic'),
+                          _buildText('Sources: Contaminated drinking water (especially groundwater), industrial waste, pesticides.'),
+                          _buildText('Effects: Skin lesions, various cancers (lung, bladder, skin), cardiovascular disease, developmental problems.'),
+
+                          _buildSubSectionTitle('Cadmium'),
+                          _buildText('Sources: Industrial discharge, mining, contaminated food (especially shellfish and leafy vegetables), cigarette smoke.'),
+                          _buildText('Effects: Kidney damage, bone disease, lung cancer.'),
+
+                          _buildSectionTitle('Presence in Water'),
+                          _buildSubSectionTitle('Contamination Pathways'),
+                          _buildText('Industrial discharge: Wastewater from industries like mining, smelting, and manufacturing.'),
+                          _buildText('Agricultural runoff: Use of fertilizers and pesticides containing heavy metals.'),
+                          _buildText('Natural leaching: Erosion of rocks and soil containing these metals.'),
+                          _buildText('Atmospheric deposition: Air pollution settling into water bodies.'),
+                          _buildSubSectionTitle('Health Risks'),
+                          _buildText('Contaminated water can be a significant source of exposure, leading to the health problems mentioned above.'),
+                        ],
+                      ),
+                    ],
+                  )
+                ],
+              )
             ),
         ],
       ),
     ); 
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
+      child: Text(
+        title,
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        softWrap: true, // Allow text to wrap
+      ),
+    );
+  }
+
+  Widget _buildSubSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0, bottom: 4.0, left: 16),
+      child: Text(
+        title,
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        softWrap: true, // Allow text to wrap
+      ),
+    );
+  }
+
+  Widget _buildText(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4.0, left: 16),
+      child: Text(
+        text,
+        softWrap: true, // Allow text to wrap
+      ),
+    );
   }
 }
 

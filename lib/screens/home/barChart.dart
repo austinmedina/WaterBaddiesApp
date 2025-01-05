@@ -1,15 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
+import '../../utils/utils.dart';
 import 'dart:math';
 
-class BarChart extends StatelessWidget {
-  BarChart({Key? key, required this.barData}) : super(key: key);
-
+class BarChart extends StatefulWidget {
   final List<Map> barData;
+  final BooleanWrapper showChart;
+
+  const BarChart({super.key, required this.barData, required this.showChart});
 
   @override
+  State<BarChart> createState() => _BarChartState();
+}
+
+class _BarChartState extends State<BarChart> {
+  @override
   Widget build(BuildContext context) {
-    final double maxY = barData.fold<double>(0, (previousMax, data) {
+    if (!widget.showChart.value) {
+      return const SizedBox.shrink();
+    }
+    if (widget.barData.isEmpty) { // Check if the list is empty first
+      return const Center(child: Text("No Data"));
+    }
+
+    // Check EACH map in the list for the 'quantity' key
+    for (final data in widget.barData) {
+        if (!data.containsKey('quantity')) {
+          return const Center(child: Text("Invalid Data: Missing 'quantity' key"));
+        }
+      final quantity = data['quantity'];
+        if (quantity == null) {
+          return const Center(child: Text("Invalid Data: Null quantity"));
+        }
+    }
+
+    final double maxY = widget.barData.fold<double>(0, (previousMax, data) {
       // Safely get quantity and maxQuantity, handling potential nulls and types
       final quantity = data['quantity'];
       final maxQuantity = data['maxQuantity'];
@@ -40,10 +65,9 @@ class BarChart extends StatelessWidget {
       ),
       series: <CartesianSeries<Map, String>>[
         ColumnSeries<Map, String>(
-          dataSource: barData,
+          dataSource: widget.barData,
           xValueMapper: (Map data, int index) => data['name'],
-          yValueMapper: (Map data, int index) =>
-              (data['quantity'] as num).toDouble(), // Explicit double conversion
+          yValueMapper: (Map data, int index) => data['quantity'],
           color: Colors.blue,
           animationDuration: 0,
           onCreateRenderer: (ChartSeries<Map, String> series) {
