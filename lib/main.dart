@@ -1,10 +1,13 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'utils/utils.dart';
 import 'package:collection/collection.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:intl/intl.dart';
+import 'package:geolocator/geolocator.dart';
 
 import 'screens/bluetooth/bluetoothBar.dart';
 import 'screens/home/barChart.dart';
@@ -104,6 +107,7 @@ class WaterBaddiesState extends ChangeNotifier {
                       }
                     }
                     notifyListeners();
+                    print("Notified");
                   });
                 }
               }catch(e){
@@ -208,24 +212,97 @@ class WaterBaddiesInfo extends StatefulWidget {
 class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
   Map<String, double> _displayedData = {};
   WaterBaddiesState wbState = WaterBaddiesState();
+  final DeepCollectionEquality _mapEquality = const DeepCollectionEquality();
 
-  BooleanWrapper showMetalChart = BooleanWrapper(false);
-  BooleanWrapper showInorganicsChart = BooleanWrapper(false);
-  BooleanWrapper showPlasticChart = BooleanWrapper(false);
-  BooleanWrapper showMetalInfo = BooleanWrapper(false);
-  BooleanWrapper showInorganicsInfo = BooleanWrapper(false);
-  BooleanWrapper showPlasticInfo = BooleanWrapper(false);
+  late final BooleanWrapper showMetalChart;
+  late final BooleanWrapper showInorganicsChart;
+  late final BooleanWrapper showPlasticChart;
+  late final BooleanWrapper showMetalInfo;
+  late final BooleanWrapper showInorganicsInfo;
+  late final BooleanWrapper showPlasticInfo;
 
   @override
   void initState() {
     super.initState();
-    wbState = context.read<WaterBaddiesState>(); // Initialize in initState
+    wbState = context.read<WaterBaddiesState>();
+    showMetalChart = BooleanWrapper(false);
+    showInorganicsChart = BooleanWrapper(false);
+    showPlasticChart = BooleanWrapper(false);
+    showMetalInfo = BooleanWrapper(false);
+    showInorganicsInfo = BooleanWrapper(false);
+    showPlasticInfo = BooleanWrapper(false);
+  }
+
+  Future<Position> _getLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Test if location services are enabled.
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      // Location services are not enabled don't continue
+      // accessing the position and request users of the 
+      // App to enable the location services.
+      return Future.error('Location services are disabled.');
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        // Permissions are denied, next time you could try
+        // requesting permissions again (this is also where
+        // Android's shouldShowRequestPermissionRationale 
+        // returned true. According to Android guidelines
+        // your App should show an explanatory UI now.
+        return Future.error('Location permissions are denied');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      // Permissions are denied forever, handle appropriately. 
+      return Future.error(
+        'Location permissions are permanently denied, we cannot request permissions.');
+    } 
+
+    // When we reach here, permissions are granted and we can
+    // continue accessing the position of the device.
+    return await Geolocator.getCurrentPosition();
+  }
+
+  void addHistory(Map<String, double> newData) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<Map<String, dynamic>> historyInfo = [];
+    
+    // Retrieve any previously saved data
+    if (prefs.containsKey('history')) {
+      String? savedData = prefs.getString('history');
+      if (savedData != null) {
+        historyInfo = List<Map<String, dynamic>>.from(jsonDecode(savedData));
+      }
+    }
+
+    historyInfo.add(
+      {
+      "date": DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()).toString(),
+      "lead": newData["Metal Concentration"],
+      "cadmium": newData["Metal Concentration"],
+      "arsenic": newData["Metal Concentration"],
+      "nitrate": newData["Inorganics Concentration"],
+      "nitrite": newData["Inorganics Concentration"],
+      "microplastics": newData["Microplastic Concentration"],
+      "location": _getLocation()
+      }
+    );
   }
 
   void _updateDisplayedData() {
     final newData = wbState.characteristicsData;
-    if (!mapEquals(_displayedData, newData)) { // Important check
+    if (!_mapEquality.equals(_displayedData, newData)) { 
+      addHistory(newData);
+      setState(() {
         _displayedData = Map.from(newData);
+      });
     }
   }
 
@@ -246,7 +323,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
             ),
 
             Selector<WaterBaddiesState, bool>(
-              selector: (context, state) => !mapEquals(state.characteristicsData, _displayedData) && state.characteristicsData.isNotEmpty,
+              selector: (context, state) => !_mapEquality.equals(state.characteristicsData, _displayedData) && state.characteristicsData.isNotEmpty,
               builder: (context, hasNewData, child) {
                 if (hasNewData) {
                   return Column(children: [
@@ -282,7 +359,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
               child: Text('You have ${_displayedData.keys.length} characteristics:'),
             ),
             if (_displayedData.isNotEmpty)
-              Column( // No need for a separate widget anymore
+              Column(
                 children: [
                 InfoCard(
                   key: ValueKey("Metals${_displayedData["Metal Concentration"]}"),
@@ -367,6 +444,25 @@ class History extends StatefulWidget {
 }
 
 class _HistoryState extends State<History> {
+
+  @override
+  void initState() {
+    super.initState();
+    fetchHistory();
+  }
+
+  Map<String, List<double>> history = {};
+
+  Future<Map<String, List<double>>> fetchHistory() async{
+    final prefs = await SharedPreferences.getInstance();
+    String? savedData = prefs.getString('history');
+    
+    if (savedData != null) {
+      return Map<String, List<double>>.from(jsonDecode(savedData));
+    }
+    return {};
+  }
+
   @override
   Widget build(BuildContext context) {
     throw UnimplementedError();

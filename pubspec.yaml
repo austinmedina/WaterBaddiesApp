@@ -20,6 +20,8 @@ dependencies:
   syncfusion_flutter_charts: ^28.1.33
   shared_preferences: ^2.3.5
   collection: ^1.19.0
+  intl: ^0.20.1
+  geolocator: ^13.0.2
 
 dev_dependencies:
   flutter_test:

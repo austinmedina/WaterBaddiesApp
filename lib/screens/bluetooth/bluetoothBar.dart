@@ -140,7 +140,9 @@ class _BluetoothBarState extends State<BluetoothBar> {
     }
     
     // Add or update the remoteId and name pair
-    deviceInfo[remoteId] = name;
+    if (name != '') {
+      deviceInfo[remoteId] = name;
+    }
 
     // Save updated map back as a JSON string
     await prefs.setString('devices', jsonEncode(deviceInfo));
