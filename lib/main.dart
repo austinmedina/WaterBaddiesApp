@@ -12,10 +12,15 @@ import 'package:geolocator/geolocator.dart';
 import 'screens/bluetooth/bluetoothBar.dart';
 import 'screens/home/barChart.dart';
 
+///The main method that instantiates an instance of the entire app
 void main() {
   return runApp(const WaterBaddiesApp());
 }
 
+///The [WaterBaddiesApp] itself which is created once upon the [main] running
+///The [build] function creates the entire view of the app, everything you see on the screen
+///In the build function, a [ChangeNotifierProvider] is used to notify any listeners of the [WaterBaddiesState]
+///The first thing you see is the [BaddiesHomePage]
 class WaterBaddiesApp extends StatelessWidget {
   const WaterBaddiesApp({super.key});
 
@@ -35,6 +40,11 @@ class WaterBaddiesApp extends StatelessWidget {
   }
 }
 
+///The [WaterBaddiesState] is a general state for the entire app
+///The state stores the currently connected [device] which should be the Raspberry Pi
+///When the device is initially connected [fetchCharacteristics] is run to get all of the characteristics of the bluetooth service
+///In the bluetoth characteristics are the values of each of the baddies (arsenic, lead, cadmium, nitrate, nitrite, and microplastics), along with each of their descriptors
+///The [subscriptions] map is created which stores listeners who listen for updates in the values on each of the characteristics
 class WaterBaddiesState extends ChangeNotifier {
   BluetoothDevice? _device;
 
@@ -43,7 +53,7 @@ class WaterBaddiesState extends ChangeNotifier {
   set device(BluetoothDevice? newDevice) {
     if (newDevice == null) throw Exception("Bluetooth device is null.");
     _device = newDevice;
-    fetchCharacteristic(_device!);
+    fetchCharacteristics(_device!);
     notifyListeners();  // Notify listeners when the device is updated
   }
 
@@ -53,7 +63,7 @@ class WaterBaddiesState extends ChangeNotifier {
 
   Map<BluetoothCharacteristic, StreamSubscription<List<int>>> subscriptions = {};
 
-  void fetchCharacteristic(BluetoothDevice device) async {
+  void fetchCharacteristics(BluetoothDevice device) async {
     if (_device == null) throw Exception("Bluetooth device not set.");
 
     final targetServiceUuid = "00000001-710e-4a5b-8d75-3e5b444bc3cf"; // Your service UUID
@@ -123,11 +133,19 @@ class WaterBaddiesState extends ChangeNotifier {
   }
 }
 
+///The [BaddiesHomePage] is the first thing the user sees upon loading the app. It is able to be reactive because of the [_BaddiesHomePageState]
 class BaddiesHomePage extends StatefulWidget {
   @override
   State<BaddiesHomePage> createState() => _BaddiesHomePageState();
 }
 
+///The [build] function in the [_BaddiesHomePageState] is what finally creates the first visable entity in the app
+///The current [page] is stored as a variable so we can change the page using a [NavigationBar]
+///The [currentPageIndex] is set to the index of the currently selected NavigationDestination
+///The page is consisted of an appBar which appears at the top of the screen
+///On the top right of the screen is the drawer, instantiated as a [BluetoothBar]
+///On the bottom of the screen is the [NavigationBar] which is used to change pages
+///In the body is the current [page] that is being displayed
 class _BaddiesHomePageState extends State<BaddiesHomePage> {
   int currentPageIndex = 0;
 
@@ -202,6 +220,8 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
   }
 }
 
+///[WaterBaddiesInfo] is one of the pages in the body of the [BaddiesHomePage]
+///It creates the [_WaterBaddiesInfoState] which displays data on our baddies, and charts of the current data from the raspberry pi
 class WaterBaddiesInfo extends StatefulWidget {
   const WaterBaddiesInfo({super.key});
 
@@ -270,6 +290,39 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     return await Geolocator.getCurrentPosition();
   }
 
+  List<String> _getHealthy(Map<String, double> newData) {
+    //This function provides warning messages for which materials were above their EPA approved threasholds
+    //todo: Update the newData to fetch more specific than 'Inorganics' and 'Metals'
+    List<String> warningMessages = [];
+
+    if (newData.containsKey('Microplastics') && newData['Microplastics']! > maxQuantities['Microplastics']!) {
+      warningMessages.add("High Microplastic Levels");
+    }
+
+    if (newData.containsKey('Inorganics')) {
+      if (newData['Inorganics']! > maxQuantities['Nitrites']!) {
+        warningMessages.add("High Nitrites Levels");
+      }
+      if (newData['Inorganics']! > maxQuantities['Nitrates']!) {
+        warningMessages.add("High Nitrate Levels");
+      }
+    }
+
+    if (newData.containsKey('Metals')) {
+      if (newData['Metals']! > maxQuantities['Cadmium']!) {
+        warningMessages.add("High Cadmium Levels");
+      }
+      if (newData['Metals']! > maxQuantities['Arsenic']!) {
+        warningMessages.add("High Arsenic Levels");
+      }
+      if (newData['Metals']! > maxQuantities['Lead']!) {
+        warningMessages.add("High Lead Levels");
+      }
+    }
+
+    return warningMessages;
+  }
+
   void addHistory(Map<String, double> newData) async {
     final prefs = await SharedPreferences.getInstance();
     List<Map<String, dynamic>> historyInfo = [];
@@ -291,9 +344,12 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
       "nitrate": newData["Inorganics Concentration"],
       "nitrite": newData["Inorganics Concentration"],
       "microplastics": newData["Microplastic Concentration"],
-      "location": _getLocation()
+      "location": _getLocation(),
+      "healthy": _getHealthy(newData)
       }
     );
+
+    await prefs.setString('history', jsonEncode(historyInfo));
   }
 
   void _updateDisplayedData() {
@@ -358,77 +414,76 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
               padding: const EdgeInsets.all(20),
               child: Text('You have ${_displayedData.keys.length} characteristics:'),
             ),
-            if (_displayedData.isNotEmpty)
-              Column(
-                children: [
-                InfoCard(
-                  key: ValueKey("Metals${_displayedData["Metal Concentration"]}"),
-                  showChart: showMetalChart,
-                  showInfo: showMetalInfo,
-                  cardTitle: "Metals",
-                  barChartData: _displayedData.isEmpty
-                      ? []
-                      : _displayedData.containsKey("Metal Concentration")
-                          ? [
-                              {
-                                'name': 'Cadmium',
-                                'maxQuantity': 90,
-                                'quantity': _displayedData["Metal Concentration"]
-                              },
-                              {
-                                'name': 'Arsenic',
-                                'maxQuantity': 95,
-                                'quantity': _displayedData["Metal Concentration"]
-                              },
-                              {
-                                'name': 'Lead',
-                                'maxQuantity': 60,
-                                'quantity': _displayedData["Metal Concentration"]
-                              }
-                            ]
-                          : [], // Return empty list if key is missing
-                ),
-                InfoCard(
-                  key: ValueKey("Inorganics${_displayedData["Inorganics Concentration"]}"),
-                  showChart: showInorganicsChart,
-                  showInfo: showInorganicsInfo,
-                  cardTitle: "Inorganics",
-                  barChartData: _displayedData.isEmpty
-                      ? []
-                      : _displayedData.containsKey("Inorganics Concentration")
-                          ? [
-                              {
-                                'name': 'Nirtrites',
-                                'maxQuantity': 75,
-                                'quantity': _displayedData["Inorganics Concentration"]
-                              },
-                              {
-                                'name': 'Nitrates',
-                                'maxQuantity': 80,
-                                'quantity': _displayedData["Inorganics Concentration"]
-                              }
-                            ]
-                          : [], // Return empty list if key is missing
-                ),
-                InfoCard(
-                  key: ValueKey("Microplastics${_displayedData["Microplastic Concentration"]}"),
-                  showChart: showPlasticChart,
-                  showInfo: showPlasticInfo,
-                  cardTitle: "Microplastics",
-                  barChartData: _displayedData.isEmpty
-                      ? []
-                      : _displayedData.containsKey("Microplastic Concentration")
-                          ? [
-                              {
-                                'name': 'Microplastics',
-                                'maxQuantity': 110,
-                                'quantity': _displayedData["Microplastic Concentration"]
-                              }
-                            ]
-                          : [], // Return empty list if key is missing
-                ),
-              ]
-            )
+            Column(
+              children: [
+              InfoCard(
+                key: ValueKey("Metals${_displayedData["Metal Concentration"]}"),
+                showChart: showMetalChart,
+                showInfo: showMetalInfo,
+                cardTitle: "Metals",
+                barChartData: _displayedData.isEmpty
+                    ? []
+                    : _displayedData.containsKey("Metal Concentration")
+                        ? [
+                            {
+                              'name': 'Cadmium',
+                              'maxQuantity': maxQuantities['Cadmium'],
+                              'quantity': _displayedData["Metal Concentration"]
+                            },
+                            {
+                              'name': 'Arsenic',
+                              'maxQuantity': maxQuantities['Arsenic'],
+                              'quantity': _displayedData["Metal Concentration"]
+                            },
+                            {
+                              'name': 'Lead',
+                              'maxQuantity': maxQuantities['Lead'],
+                              'quantity': _displayedData["Metal Concentration"]
+                            }
+                          ]
+                        : [], // Return empty list if key is missing
+              ),
+              InfoCard(
+                key: ValueKey("Inorganics${_displayedData["Inorganics Concentration"]}"),
+                showChart: showInorganicsChart,
+                showInfo: showInorganicsInfo,
+                cardTitle: "Inorganics",
+                barChartData: _displayedData.isEmpty
+                    ? []
+                    : _displayedData.containsKey("Inorganics Concentration")
+                        ? [
+                            {
+                              'name': 'Nitrites',
+                              'maxQuantity': maxQuantities['Nitrites'],
+                              'quantity': _displayedData["Inorganics Concentration"]
+                            },
+                            {
+                              'name': 'Nitrates',
+                              'maxQuantity': maxQuantities['Nitrates'],
+                              'quantity': _displayedData["Inorganics Concentration"]
+                            }
+                          ]
+                        : [], // Return empty list if key is missing
+              ),
+              InfoCard(
+                key: ValueKey("Microplastics${_displayedData["Microplastic Concentration"]}"),
+                showChart: showPlasticChart,
+                showInfo: showPlasticInfo,
+                cardTitle: "Microplastics",
+                barChartData: _displayedData.isEmpty
+                    ? []
+                    : _displayedData.containsKey("Microplastic Concentration")
+                        ? [
+                            {
+                              'name': 'Microplastics',
+                              'maxQuantity': maxQuantities['Microplastics'],
+                              'quantity': _displayedData["Microplastic Concentration"]
+                            }
+                          ]
+                        : [], // Return empty list if key is missing
+              ),
+            ]
+          )
           ]
         )
       )
@@ -560,41 +615,37 @@ class _InfoCardState extends State<InfoCard> {
                     ],
                   ),
                   SizedBox(height: 16,),
-                  Row(
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          _buildSectionTitle('Background'),
-                          _buildText('Natural Occurrence: These metals exist naturally in soil, rocks, and water at low concentrations.'),
-                          _buildText('Anthropogenic Sources: Human activities like mining, smelting, industrial production, waste disposal, and the use of pesticides and fertilizers contribute to elevated levels of these metals in the environment.'),
-                          _buildText('Persistence: Heavy metals are persistent pollutants, meaning they don\'t break down in the environment and can accumulate over time.'),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _buildSectionTitle('Background'),
+                      _buildText('Natural Occurrence: These metals exist naturally in soil, rocks, and water at low concentrations.'),
+                      _buildText('Anthropogenic Sources: Human activities like mining, smelting, industrial production, waste disposal, and the use of pesticides and fertilizers contribute to elevated levels of these metals in the environment.'),
+                      _buildText('Persistence: Heavy metals are persistent pollutants, meaning they don\'t break down in the environment and can accumulate over time.'),
 
-                          _buildSectionTitle('Effects on Humans'),
-                          _buildSubSectionTitle('Lead'),
-                          _buildText('Sources: Old lead-based paint, contaminated water pipes, industrial emissions.'),
-                          _buildText('Effects: Neurological damage (especially in children), developmental problems, kidney damage, high blood pressure.'),
+                      _buildSectionTitle('Effects on Humans'),
+                      _buildSubSectionTitle('Lead'),
+                      _buildText('Sources: Old lead-based paint, contaminated water pipes, industrial emissions.'),
+                      _buildText('Effects: Neurological damage (especially in children), developmental problems, kidney damage, high blood pressure.'),
 
-                          _buildSubSectionTitle('Arsenic'),
-                          _buildText('Sources: Contaminated drinking water (especially groundwater), industrial waste, pesticides.'),
-                          _buildText('Effects: Skin lesions, various cancers (lung, bladder, skin), cardiovascular disease, developmental problems.'),
+                      _buildSubSectionTitle('Arsenic'),
+                      _buildText('Sources: Contaminated drinking water (especially groundwater), industrial waste, pesticides.'),
+                      _buildText('Effects: Skin lesions, various cancers (lung, bladder, skin), cardiovascular disease, developmental problems.'),
 
-                          _buildSubSectionTitle('Cadmium'),
-                          _buildText('Sources: Industrial discharge, mining, contaminated food (especially shellfish and leafy vegetables), cigarette smoke.'),
-                          _buildText('Effects: Kidney damage, bone disease, lung cancer.'),
+                      _buildSubSectionTitle('Cadmium'),
+                      _buildText('Sources: Industrial discharge, mining, contaminated food (especially shellfish and leafy vegetables), cigarette smoke.'),
+                      _buildText('Effects: Kidney damage, bone disease, lung cancer.'),
 
-                          _buildSectionTitle('Presence in Water'),
-                          _buildSubSectionTitle('Contamination Pathways'),
-                          _buildText('Industrial discharge: Wastewater from industries like mining, smelting, and manufacturing.'),
-                          _buildText('Agricultural runoff: Use of fertilizers and pesticides containing heavy metals.'),
-                          _buildText('Natural leaching: Erosion of rocks and soil containing these metals.'),
-                          _buildText('Atmospheric deposition: Air pollution settling into water bodies.'),
-                          _buildSubSectionTitle('Health Risks'),
-                          _buildText('Contaminated water can be a significant source of exposure, leading to the health problems mentioned above.'),
-                        ],
-                      ),
+                      _buildSectionTitle('Presence in Water'),
+                      _buildSubSectionTitle('Contamination Pathways'),
+                      _buildText('Industrial discharge: Wastewater from industries like mining, smelting, and manufacturing.'),
+                      _buildText('Agricultural runoff: Use of fertilizers and pesticides containing heavy metals.'),
+                      _buildText('Natural leaching: Erosion of rocks and soil containing these metals.'),
+                      _buildText('Atmospheric deposition: Air pollution settling into water bodies.'),
+                      _buildSubSectionTitle('Health Risks'),
+                      _buildText('Contaminated water can be a significant source of exposure, leading to the health problems mentioned above.'),
                     ],
-                  )
+                  ),
                 ],
               )
             ),
@@ -606,10 +657,12 @@ class _InfoCardState extends State<InfoCard> {
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
-      child: Text(
+      child: Expanded(
+        child: Text(
         title,
         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        softWrap: true, // Allow text to wrap
+        softWrap: true,
+        )
       ),
     );
   }
@@ -617,10 +670,12 @@ class _InfoCardState extends State<InfoCard> {
   Widget _buildSubSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(top: 8.0, bottom: 4.0, left: 16),
-      child: Text(
+      child: Expanded(
+        child: Text(
         title,
         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        softWrap: true, // Allow text to wrap
+        softWrap: true,
+        )
       ),
     );
   }
@@ -628,9 +683,11 @@ class _InfoCardState extends State<InfoCard> {
   Widget _buildText(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4.0, left: 16),
-      child: Text(
+      child: Expanded(
+        child: Text(
         text,
-        softWrap: true, // Allow text to wrap
+        softWrap: true,
+        )
       ),
     );
   }
