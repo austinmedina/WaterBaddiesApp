@@ -156,7 +156,7 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
       case 0:
         page = WaterBaddiesInfo();
       case 1:
-        page = Placeholder();
+        page = History();
       case 2:
         page = Placeholder();
       default:
@@ -253,7 +253,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     showPlasticInfo = BooleanWrapper(false);
   }
 
-  Future<Position> _getLocation() async {
+  Future<Map<String, double>> _getLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
 
@@ -287,7 +287,11 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
 
     // When we reach here, permissions are granted and we can
     // continue accessing the position of the device.
-    return await Geolocator.getCurrentPosition();
+    Position position = await Geolocator.getCurrentPosition();
+    return {
+      "latitude": position.latitude,
+      "longitude": position.longitude,
+    };
   }
 
   List<String> _getHealthy(Map<String, double> newData) {
@@ -295,27 +299,27 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     //todo: Update the newData to fetch more specific than 'Inorganics' and 'Metals'
     List<String> warningMessages = [];
 
-    if (newData.containsKey('Microplastics') && newData['Microplastics']! > maxQuantities['Microplastics']!) {
+    if (newData.containsKey('Microplastic Concentration') && newData['Microplastic Concentration']! > maxQuantities['Microplastics']!) {
       warningMessages.add("High Microplastic Levels");
     }
 
-    if (newData.containsKey('Inorganics')) {
-      if (newData['Inorganics']! > maxQuantities['Nitrites']!) {
+    if (newData.containsKey('Inorganics Concentration')) {
+      if (newData['Inorganics Concentration']! > maxQuantities['Nitrites']!) {
         warningMessages.add("High Nitrites Levels");
       }
-      if (newData['Inorganics']! > maxQuantities['Nitrates']!) {
+      if (newData['Inorganics Concentration']! > maxQuantities['Nitrates']!) {
         warningMessages.add("High Nitrate Levels");
       }
     }
 
-    if (newData.containsKey('Metals')) {
-      if (newData['Metals']! > maxQuantities['Cadmium']!) {
+    if (newData.containsKey('Metal Concentration')) {
+      if (newData['Metal Concentration']! > maxQuantities['Cadmium']!) {
         warningMessages.add("High Cadmium Levels");
       }
-      if (newData['Metals']! > maxQuantities['Arsenic']!) {
+      if (newData['Metal Concentration']! > maxQuantities['Arsenic']!) {
         warningMessages.add("High Arsenic Levels");
       }
-      if (newData['Metals']! > maxQuantities['Lead']!) {
+      if (newData['Metal Concentration']! > maxQuantities['Lead']!) {
         warningMessages.add("High Lead Levels");
       }
     }
@@ -344,7 +348,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
       "nitrate": newData["Inorganics Concentration"],
       "nitrite": newData["Inorganics Concentration"],
       "microplastics": newData["Microplastic Concentration"],
-      "location": _getLocation(),
+      "location": await _getLocation(),
       "healthy": _getHealthy(newData)
       }
     );
@@ -503,24 +507,87 @@ class _HistoryState extends State<History> {
   @override
   void initState() {
     super.initState();
-    fetchHistory();
+    history = fetchHistory();
   }
 
-  Map<String, List<double>> history = {};
+  late Future<List<Map<String, dynamic>>> history;
 
-  Future<Map<String, List<double>>> fetchHistory() async{
+  Future<List<Map<String, dynamic>>> fetchHistory() async {
     final prefs = await SharedPreferences.getInstance();
     String? savedData = prefs.getString('history');
     
     if (savedData != null) {
-      return Map<String, List<double>>.from(jsonDecode(savedData));
+      return List<Map<String, dynamic>>.from(jsonDecode(savedData));
     }
-    return {};
+    return [];
   }
 
   @override
   Widget build(BuildContext context) {
-    throw UnimplementedError();
+    return Center (
+      child: FutureBuilder(
+      future: history, 
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return CircularProgressIndicator(); // Show loading indicator
+        } else if (snapshot.hasError) {
+          return Text('Error: ${snapshot.error}'); // Handle errors
+        } else if (snapshot.hasData) {
+          final data = snapshot.data;
+          if (data == null) {
+            return Text('Error: History is null');
+          } else if (data.isEmpty) {
+            return Text('No history found.');
+          } else {
+            return ListView.builder(
+              itemCount: data.length,
+              itemBuilder: (context, index) {
+                // Use data[index] to access each item in the list
+                return Card(
+                  child: ExpansionTile(
+                    title: Text(data[index]['date']),
+                    subtitle: Text(data[index]['healthy'].join(', ')),
+                    children: [
+                      _buildKeyValueRow('lead', data[index]['lead']),
+                      _buildKeyValueRow('cadmium', data[index]['cadmium']),
+                      _buildKeyValueRow('arsenic', data[index]['arsenic']),
+                      _buildKeyValueRow('nitrate', data[index]['nitrate']),
+                      _buildKeyValueRow('nitrite', data[index]['nitrite']),
+                      _buildKeyValueRow('microplastics', data[index]['microplastics']),
+                      _buildKeyValueRow('location', data[index]['location']),
+                    ],
+                    ),
+                );
+              },
+            );
+          }
+        }
+        return Container();
+      }
+      )
+    );
+  }
+
+  Widget _buildKeyValueRow(String key, dynamic value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 1,
+            child: Text(
+              '$key:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(value.toString()),
+          ),
+        ],
+      ),
+    );
   }
 }
 
