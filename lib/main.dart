@@ -51,9 +51,10 @@ class WaterBaddiesState extends ChangeNotifier {
   BluetoothDevice? get device => _device;
 
   set device(BluetoothDevice? newDevice) {
-    if (newDevice == null) throw Exception("Bluetooth device is null.");
     _device = newDevice;
-    fetchCharacteristics(_device!);
+    if (newDevice != null) { // Only fetch characteristics if newDevice is not null
+      fetchCharacteristics(_device!);
+    }
     notifyListeners();  // Notify listeners when the device is updated
   }
 
@@ -63,17 +64,28 @@ class WaterBaddiesState extends ChangeNotifier {
 
   Map<BluetoothCharacteristic, StreamSubscription<List<int>>> subscriptions = {};
 
+  void clearSubscriptions() {
+    subscriptions.forEach((characteristic, subscription) {
+      subscription.cancel();
+    });
+    subscriptions = {};
+    notifyListeners();
+  }
+
   void fetchCharacteristics(BluetoothDevice device) async {
     if (_device == null) throw Exception("Bluetooth device not set.");
 
     final targetServiceUuid = "00000001-710e-4a5b-8d75-3e5b444bc3cf"; // Your service UUID
 
     // Map of characteristic UUIDs to descriptor UUIDs (and optionally names)
-    final targetCharacteristics = {
-      "00000002-710e-4a5b-8d75-3e5b444bc3cf": "2901", // Microplastic
-      "00000002-810e-4a5b-8d75-3e5b444bc3cf": "2904", // Metal
-      "00000002-910e-4a5b-8d75-3e5b444bc3cf": "2903", // Inorganics
-    };
+    final targetCharacteristics = [
+      "00000002-110e-4a5b-8d75-3e5b444bc3cf", //Microplastic
+      "00000002-210e-4a5b-8d75-3e5b444bc3cf", //Lead
+      "00000002-310e-4a5b-8d75-3e5b444bc3cf", //Cadmium
+      "00000002-410e-4a5b-8d75-3e5b444bc3cf", //Arsenic
+      "00000002-510e-4a5b-8d75-3e5b444bc3cf", //Nitrite
+      "00000002-610e-4a5b-8d75-3e5b444bc3cf", //Nitrate
+    ];
 
     try {
       final services = await device.discoverServices();
@@ -82,17 +94,14 @@ class WaterBaddiesState extends ChangeNotifier {
 
       if (service != null) {
         for (final characteristic in service.characteristics) {
-          final targetDescriptorUuid = targetCharacteristics[characteristic.uuid.toString()];
-
-          if (targetDescriptorUuid != null) { // Only process if a target descriptor is defined
-            if (characteristic.properties.read) {
+            if (targetCharacteristics.contains(characteristic.uuid.toString())) {
               try{
                 final charValue = await characteristic.read();
                 final charValueString = String.fromCharCodes(charValue);
                 final charValueDouble = double.tryParse(charValueString) ?? 0.0;
 
                 for (final descriptor in characteristic.descriptors) {
-                  if (descriptor.uuid.toString().toUpperCase() == targetDescriptorUuid.toUpperCase()) { // Case-insensitive comparison
+                  if (descriptor.uuid.toString().toUpperCase() == "2901") {
                     final descValue = await descriptor.read();
                     if (descValue.isNotEmpty && !descValue.every((v) => v == 0)) {
                       final descString = String.fromCharCodes(descValue);
@@ -108,7 +117,7 @@ class WaterBaddiesState extends ChangeNotifier {
                     final updatedDoubleValue = double.tryParse(updatedCharValue) ?? 0.0;
 
                     for (final descriptor in characteristic.descriptors) {
-                      if (descriptor.uuid.toString().toUpperCase() == targetDescriptorUuid.toUpperCase()) {
+                      if (descriptor.uuid.toString().toUpperCase() == "2901") {
                         final descValue = await descriptor.read();
                         if ((descValue as List).isNotEmpty && !(descValue as List).every((v) => v == 0)) {
                           final descString = String.fromCharCodes(descValue);
@@ -124,7 +133,6 @@ class WaterBaddiesState extends ChangeNotifier {
                 print("Error reading characteristic: $e");
               }
             }
-          }
         }
       }
     } catch (e) {
@@ -299,29 +307,23 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     //todo: Update the newData to fetch more specific than 'Inorganics' and 'Metals'
     List<String> warningMessages = [];
 
-    if (newData.containsKey('Microplastic Concentration') && newData['Microplastic Concentration']! > maxQuantities['Microplastics']!) {
+    if (newData.containsKey('Microplastic') && newData['Microplastic']! > maxQuantities['Microplastic']!) {
       warningMessages.add("High Microplastic Levels");
     }
-
-    if (newData.containsKey('Inorganics Concentration')) {
-      if (newData['Inorganics Concentration']! > maxQuantities['Nitrites']!) {
-        warningMessages.add("High Nitrites Levels");
-      }
-      if (newData['Inorganics Concentration']! > maxQuantities['Nitrates']!) {
-        warningMessages.add("High Nitrate Levels");
-      }
+    if (newData.containsKey('Lead') && newData['Lead']! > maxQuantities['Lead']!) {
+      warningMessages.add("High Lead Levels");
     }
-
-    if (newData.containsKey('Metal Concentration')) {
-      if (newData['Metal Concentration']! > maxQuantities['Cadmium']!) {
-        warningMessages.add("High Cadmium Levels");
-      }
-      if (newData['Metal Concentration']! > maxQuantities['Arsenic']!) {
-        warningMessages.add("High Arsenic Levels");
-      }
-      if (newData['Metal Concentration']! > maxQuantities['Lead']!) {
-        warningMessages.add("High Lead Levels");
-      }
+    if (newData.containsKey('Cadmium') && newData['Cadmium']! > maxQuantities['Cadmium']!) {
+      warningMessages.add("High Cadmium Levels");
+    }
+    if (newData.containsKey('Arsenic') && newData['Arsenic']! > maxQuantities['Arsenic']!) {
+      warningMessages.add("High Arsenic Levels");
+    }
+    if (newData.containsKey('Nitrite') && newData['Nitrite']! > maxQuantities['Nitrite']!) {
+      warningMessages.add("High Nitrite Levels");
+    }
+    if (newData.containsKey('Nitrate') && newData['Nitrate']! > maxQuantities['Nitrate']!) {
+      warningMessages.add("High Nitrate Levels");
     }
 
     return warningMessages;
@@ -342,12 +344,12 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     historyInfo.add(
       {
       "date": DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()).toString(),
-      "lead": newData["Metal Concentration"],
-      "cadmium": newData["Metal Concentration"],
-      "arsenic": newData["Metal Concentration"],
-      "nitrate": newData["Inorganics Concentration"],
-      "nitrite": newData["Inorganics Concentration"],
-      "microplastics": newData["Microplastic Concentration"],
+      "lead": newData["Lead"],
+      "cadmium": newData["Cadmium"],
+      "arsenic": newData["Arsenic"],
+      "nitrite": newData["Nitrite"],
+      "nitrate": newData["Nitrate"],
+      "microplastics": newData["Microplastic"],
       "location": await _getLocation(),
       "healthy": _getHealthy(newData)
       }
@@ -414,74 +416,71 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
               }
             ),
 
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text('You have ${_displayedData.keys.length} characteristics:'),
-            ),
             Column(
               children: [
               InfoCard(
-                key: ValueKey("Metals${_displayedData["Metal Concentration"]}"),
+                key: ValueKey("Metals${_displayedData["Lead"]}${_displayedData["Cadmium"]}${_displayedData["Arsenic"]}"),
                 showChart: showMetalChart,
                 showInfo: showMetalInfo,
                 cardTitle: "Metals",
                 barChartData: _displayedData.isEmpty
                     ? []
-                    : _displayedData.containsKey("Metal Concentration")
-                        ? [
-                            {
-                              'name': 'Cadmium',
-                              'maxQuantity': maxQuantities['Cadmium'],
-                              'quantity': _displayedData["Metal Concentration"]
-                            },
-                            {
-                              'name': 'Arsenic',
-                              'maxQuantity': maxQuantities['Arsenic'],
-                              'quantity': _displayedData["Metal Concentration"]
-                            },
-                            {
-                              'name': 'Lead',
-                              'maxQuantity': maxQuantities['Lead'],
-                              'quantity': _displayedData["Metal Concentration"]
-                            }
-                          ]
-                        : [], // Return empty list if key is missing
+                    : [
+                      if (_displayedData.containsKey("Cadmium"))
+                        {
+                          'name': 'Cadmium',
+                          'maxQuantity': maxQuantities['Cadmium'],
+                          'quantity': _displayedData["Cadmium"],
+                        },
+                      if (_displayedData.containsKey("Arsenic"))
+                        {
+                          'name': 'Arsenic',
+                          'maxQuantity': maxQuantities['Arsenic'],
+                          'quantity': _displayedData["Arsenic"],
+                        },
+                      if (_displayedData.containsKey("Lead"))
+                        {
+                          'name': 'Lead',
+                          'maxQuantity': maxQuantities['Lead'],
+                          'quantity': _displayedData["Lead"],
+                        },
+                    ].where((element) => element.isNotEmpty).toList()
               ),
               InfoCard(
-                key: ValueKey("Inorganics${_displayedData["Inorganics Concentration"]}"),
+                key: ValueKey("Inorganics${_displayedData["Nitrite"]}${_displayedData["Nitrate"]}"), 
                 showChart: showInorganicsChart,
                 showInfo: showInorganicsInfo,
                 cardTitle: "Inorganics",
                 barChartData: _displayedData.isEmpty
                     ? []
-                    : _displayedData.containsKey("Inorganics Concentration")
-                        ? [
-                            {
-                              'name': 'Nitrites',
-                              'maxQuantity': maxQuantities['Nitrites'],
-                              'quantity': _displayedData["Inorganics Concentration"]
-                            },
-                            {
-                              'name': 'Nitrates',
-                              'maxQuantity': maxQuantities['Nitrates'],
-                              'quantity': _displayedData["Inorganics Concentration"]
-                            }
-                          ]
-                        : [], // Return empty list if key is missing
+                    : [
+                        if (_displayedData.containsKey("Nitrite"))
+                          {
+                            'name': 'Nitrites',
+                            'maxQuantity': maxQuantities['Nitrite'],
+                            'quantity': _displayedData["Nitrite"],
+                          },
+                        if (_displayedData.containsKey("Nitrate"))
+                          {
+                            'name': 'Nitrates',
+                            'maxQuantity': maxQuantities['Nitrate'],
+                            'quantity': _displayedData["Nitrate"],
+                          },
+                      ].where((element) => element.isNotEmpty).toList(),
               ),
               InfoCard(
-                key: ValueKey("Microplastics${_displayedData["Microplastic Concentration"]}"),
+                key: ValueKey("Microplastics${_displayedData["Microplastic"]}"),
                 showChart: showPlasticChart,
                 showInfo: showPlasticInfo,
                 cardTitle: "Microplastics",
                 barChartData: _displayedData.isEmpty
                     ? []
-                    : _displayedData.containsKey("Microplastic Concentration")
+                    : _displayedData.containsKey("Microplastic")
                         ? [
                             {
                               'name': 'Microplastics',
-                              'maxQuantity': maxQuantities['Microplastics'],
-                              'quantity': _displayedData["Microplastic Concentration"]
+                              'maxQuantity': maxQuantities['Microplastic'],
+                              'quantity': _displayedData["Microplastic"]
                             }
                           ]
                         : [], // Return empty list if key is missing
