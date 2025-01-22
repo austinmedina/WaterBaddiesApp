@@ -29,9 +29,13 @@ class _BluetoothBarState extends State<BluetoothBar> {
   String statusMessage = 'Checking Bluetooth...';
   String connectedMessage = "Not connected to any devices";
 
+  ScrollController scrollCont = ScrollController();
+
   @override
   void initState() {
     super.initState();
+
+    getConnectedDevice();
     
     _scanResultsSubscription = FlutterBluePlus.scanResults.listen((results) {
       if (mounted) {
@@ -67,6 +71,13 @@ class _BluetoothBarState extends State<BluetoothBar> {
     _statusMessageSubscription.cancel();
     _connectionSubscription?.cancel();
     super.dispose();
+  }
+
+  void getConnectedDevice() {
+    _device = Provider.of<WaterBaddiesState>(context, listen: false).device;
+    if (_device != null) {
+      _isConnected = true;
+    }
   }
 
   Future<void> loadPreviouslyConnectedDevices() async {
@@ -111,11 +122,9 @@ class _BluetoothBarState extends State<BluetoothBar> {
   }
 
   Future<void> scanDevices() async {
-    setState (() {
-      _isConnected = false;
-    });
     if (!_isScanning) {
       try {
+          statusMessage = "Scanning";
           await FlutterBluePlus.startScan(timeout: const Duration(seconds: 10), androidScanMode: AndroidScanMode(1));
       } catch (e) {
           print('Error starting scan: $e');
@@ -159,6 +168,18 @@ class _BluetoothBarState extends State<BluetoothBar> {
     return {};
   }
 
+  Future<String> getPlatfromName(String remoteId) async {
+    Map<String, String> devices = await getDeviceInfo();
+
+    if (devices.isNotEmpty && devices.containsKey(remoteId)) {
+      String name = devices[remoteId] ?? "";
+      return name;
+    }
+    
+    return "";
+
+  }
+
   void connectDevice(BluetoothDevice device) async {
     try {
       await device.connect();
@@ -172,10 +193,20 @@ class _BluetoothBarState extends State<BluetoothBar> {
         setState(() {
           if (state == BluetoothConnectionState.disconnected) {
             _isConnected = false;
-            connectedMessage = "Disconnected from ${device.platformName}";
+            Future<String> platformNameFuture = device.platformName == ""
+              ? getPlatfromName(device.remoteId.str)
+              : Future.value(device.platformName);
+
+          platformNameFuture.then((platformName) {
+            setState(() {
+              connectedMessage = "Disconnected from $platformName";
+            });
+          });
           } else if (state == BluetoothConnectionState.connected) {
-            _isConnected = true;
-            connectedMessage = "Connected to ${device.platformName}";
+            setState(() {
+              _isConnected = true;
+              connectedMessage = "Connected to ${device.platformName}";
+            });
           }
         });
       });
@@ -187,25 +218,36 @@ class _BluetoothBarState extends State<BluetoothBar> {
     }
   }
 
-  void disconnectDevice(BluetoothDevice? device) async {
-  try {
-    await device?.disconnect();
-    _device = null;
-    _connectionSubscription?.cancel();
-    _connectionSubscription = null; 
-  } catch (e) {
-    print("Error disconnecting: $e");
+  void disconnectDevice() async {
+    try {
+      final BluetoothDevice? localDevice = _device;
+      if (localDevice != null) {
+        await localDevice.disconnect();
+      }
+
+      setState(() {
+        _device = null;
+        _connectionSubscription?.cancel();
+        _connectionSubscription = null;
+        _isConnected = false;
+        Provider.of<WaterBaddiesState>(context, listen: false).clearSubscriptions();
+        Provider.of<WaterBaddiesState>(context, listen: false).device = null;
+        checkBluetooth();
+      });
+    } catch (e) {
+      print("Error disconnecting: $e");
+    }
   }
-}
 
 
   @override
   Widget build(BuildContext context) {
     return Drawer(
       child: _isLoading // Show a loading indicator while data is loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-        padding: EdgeInsets.zero,
+        ? const Center(child: CircularProgressIndicator())
+        : ListView(
+        padding: EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+        controller: scrollCont,
         children: <Widget>[
           DrawerHeader(
             decoration: BoxDecoration(color: Colors.blue),
@@ -229,13 +271,26 @@ class _BluetoothBarState extends State<BluetoothBar> {
           ),
           (_isConnected && (_device != null))
             ? ListTile(
-                title: Text("Connected to ${_device!.platformName}"),
-                subtitle: Text(_device!.remoteId.str),
-                trailing: IconButton(
-                  icon: Icon(Icons.close),
-                  onPressed: () => disconnectDevice(_device),
-                  ),
-              )
+              title: FutureBuilder<String>(
+                future: _device!.platformName == ""
+                    ? getPlatfromName(_device!.remoteId.str)
+                    : Future.value(_device!.platformName),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Text("Error: ${snapshot.error}");
+                  } else {
+                    return Text("Connected to ${snapshot.data}");
+                  }
+                },
+              ),
+              subtitle: Text(_device!.remoteId.str),
+              trailing: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => disconnectDevice(),
+              ),
+            )
             : ListTile(
                 title: Text(statusMessage),
                 subtitle: Text(connectedMessage),
@@ -248,15 +303,14 @@ class _BluetoothBarState extends State<BluetoothBar> {
                   itemBuilder: (context, index) {
                     // Convert the map into a list of key-value pairs (remoteId, name)
                     String remoteId = previouslyConnectedDevices.keys.elementAt(index);
-                    String name = previouslyConnectedDevices[remoteId]!; // Safe access to the value
+                    String name = previouslyConnectedDevices[remoteId]!;
 
                     return Card(
                       elevation: 2,
                       child: ListTile(
-                        title: Text(name), // Display the name
-                        subtitle: Text(remoteId), // Display the remoteId
+                        title: Text(name),
+                        subtitle: Text(remoteId),
                         onTap: () {
-                          // You can add your connectDevice logic here if needed
                           connectDevice(BluetoothDevice.fromId(remoteId));
                         },
                       ),
@@ -278,6 +332,7 @@ class _BluetoothBarState extends State<BluetoothBar> {
                           subtitle: Text(data.device.remoteId.str),
                           trailing: Text(data.rssi.toString()),
                           onTap: () {
+                            scrollCont.jumpTo(0.0);
                             connectDevice(data.device);
                           },
                         ),
