@@ -53,16 +53,50 @@ class WaterBaddiesState extends ChangeNotifier {
   set device(BluetoothDevice? newDevice) {
     _device = newDevice;
     if (newDevice != null) { // Only fetch characteristics if newDevice is not null
+      createConnectionSubscription();
       fetchCharacteristics(_device!);
     }
     notifyListeners();  // Notify listeners when the device is updated
+  }
+
+  StreamSubscription<BluetoothConnectionState>? _connectionSub;
+
+  StreamSubscription<BluetoothConnectionState>? get connectionSub => _connectionSub;
+
+  set connectionSub( StreamSubscription<BluetoothConnectionState>? newSub) {
+    _connectionSub = newSub;
+  }
+
+  String? _connectionMessage;
+
+  String? get connectionMessage => _connectionMessage;
+
+  set connectionMessage(String? newMessage) {
+    _connectionMessage = newMessage;
   }
 
   Map<String, double> _characteristicsData = {};
 
   Map<String, double> get characteristicsData => Map.from(_characteristicsData);
 
+  set characteristicsData(Map<String, double> cd) {
+    _characteristicsData = cd;
+  }
+
   Map<BluetoothCharacteristic, StreamSubscription<List<int>>> subscriptions = {};
+
+  void createConnectionSubscription(){
+    connectionSub = device!.connectionState.listen((BluetoothConnectionState state) {
+      if (state == BluetoothConnectionState.disconnected) {
+        connectionMessage = "Please Connect a Bluetooth Device";
+        device = null;
+        notifyListeners();
+      } else if (state == BluetoothConnectionState.connected) {
+        connectionMessage = "Connected";
+        notifyListeners();
+      }
+    });
+  }
 
   void clearSubscriptions() {
     subscriptions.forEach((characteristic, subscription) {
@@ -70,6 +104,10 @@ class WaterBaddiesState extends ChangeNotifier {
     });
     subscriptions = {};
     notifyListeners();
+    connectionSub?.cancel();
+    connectionSub = null;
+    connectionMessage = "Please Connect a Bluetooth Device";
+    characteristicsData = {};
   }
 
   void fetchCharacteristics(BluetoothDevice device) async {
@@ -139,6 +177,13 @@ class WaterBaddiesState extends ChangeNotifier {
       print("Error discovering services: $e");
     }
   }
+
+  @override
+  void dispose() {
+    connectionSub?.cancel();
+    super.dispose();
+  }
+
 }
 
 ///The [BaddiesHomePage] is the first thing the user sees upon loading the app. It is able to be reactive because of the [_BaddiesHomePageState]
@@ -188,6 +233,7 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
                 );
               },
             ),
+            backgroundColor: Theme.of(context).colorScheme.primary,
           ),
           bottomNavigationBar: NavigationBar(
             labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
@@ -308,22 +354,22 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     List<String> warningMessages = [];
 
     if (newData.containsKey('Microplastic') && newData['Microplastic']! > maxQuantities['Microplastic']!) {
-      warningMessages.add("High Microplastic Levels");
+      warningMessages.add("Microplastic");
     }
     if (newData.containsKey('Lead') && newData['Lead']! > maxQuantities['Lead']!) {
-      warningMessages.add("High Lead Levels");
+      warningMessages.add("Lead");
     }
     if (newData.containsKey('Cadmium') && newData['Cadmium']! > maxQuantities['Cadmium']!) {
-      warningMessages.add("High Cadmium Levels");
+      warningMessages.add("Cadmium");
     }
     if (newData.containsKey('Arsenic') && newData['Arsenic']! > maxQuantities['Arsenic']!) {
-      warningMessages.add("High Arsenic Levels");
+      warningMessages.add("Arsenic");
     }
     if (newData.containsKey('Nitrite') && newData['Nitrite']! > maxQuantities['Nitrite']!) {
-      warningMessages.add("High Nitrite Levels");
+      warningMessages.add("Nitrite");
     }
     if (newData.containsKey('Nitrate') && newData['Nitrate']! > maxQuantities['Nitrate']!) {
-      warningMessages.add("High Nitrate Levels");
+      warningMessages.add("Nitrate");
     }
 
     return warningMessages;
@@ -377,10 +423,14 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Selector<WaterBaddiesState, BluetoothDevice?>(
-              selector: (context, state) => state.device,
-              builder: (context, device, child) {
-                return Text(device != null ? "Connected" : "Please Connect a Bluetooth Device");
+            Selector<WaterBaddiesState, String?>(
+              selector: (context, state) => state.connectionMessage,
+              builder: (context, connectionMessage, child) {
+                return Padding(padding: const EdgeInsets.all(8.0),
+                  child: Text(connectionMessage ?? "",
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30.0),
+                    )
+                );
               },
             ),
 
@@ -404,12 +454,6 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                       child: Text("Fetch New Data"),
                     ),
                   ]);
-                } else if (_displayedData.isEmpty) {
-                  return Column(
-                    children: [
-                      Text("No Data Available"),  
-                    ]
-                  );
                 } else {
                   return const SizedBox.shrink();
                 }
@@ -541,19 +585,18 @@ class _HistoryState extends State<History> {
             return ListView.builder(
               itemCount: data.length,
               itemBuilder: (context, index) {
-                // Use data[index] to access each item in the list
                 return Card(
                   child: ExpansionTile(
                     title: Text(data[index]['date']),
-                    subtitle: Text(data[index]['healthy'].join(', ')),
+                    subtitle: Text("High levels of: ${data[index]['healthy'].join(', ')}"),
                     children: [
-                      _buildKeyValueRow('lead', data[index]['lead']),
-                      _buildKeyValueRow('cadmium', data[index]['cadmium']),
-                      _buildKeyValueRow('arsenic', data[index]['arsenic']),
-                      _buildKeyValueRow('nitrate', data[index]['nitrate']),
-                      _buildKeyValueRow('nitrite', data[index]['nitrite']),
-                      _buildKeyValueRow('microplastics', data[index]['microplastics']),
-                      _buildKeyValueRow('location', data[index]['location']),
+                      _buildKeyValueRow('lead', "${data[index]['lead']} parts/million"),
+                      _buildKeyValueRow('cadmium', "${data[index]['cadmium']} parts/million"),
+                      _buildKeyValueRow('arsenic', "${data[index]['arsenic']} parts/million"),
+                      _buildKeyValueRow('nitrate', "${data[index]['nitrate']} parts/million"),
+                      _buildKeyValueRow('nitrite', "${data[index]['nitrite']} parts/million"),
+                      _buildKeyValueRow('microplastics', "${data[index]['microplastics']} parts/million"),
+                      _buildKeyValueRow('location', "${data[index]['location']['latitude']}, ${data[index]['location']['longitude']}"),
                     ],
                     ),
                 );
@@ -569,7 +612,7 @@ class _HistoryState extends State<History> {
 
   Widget _buildKeyValueRow(String key, dynamic value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.all(8.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -19,11 +19,10 @@ class _BarChartState extends State<BarChart> {
     if (!widget.showChart.value) {
       return const SizedBox.shrink();
     }
-    if (widget.barData.isEmpty) { // Check if the list is empty first
+    if (widget.barData.isEmpty) {
       return const Center(child: Text("No Data"));
     }
 
-    // Check EACH map in the list for the 'quantity' key
     for (final data in widget.barData) {
         if (!data.containsKey('quantity')) {
           return const Center(child: Text("Invalid Data: Missing 'quantity' key"));
@@ -35,7 +34,6 @@ class _BarChartState extends State<BarChart> {
     }
 
     final double maxY = widget.barData.fold<double>(0, (previousMax, data) {
-      // Safely get quantity and maxQuantity, handling potential nulls and types
       final quantity = data['quantity'];
       final maxQuantity = data['maxQuantity'];
 

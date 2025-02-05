@@ -74,9 +74,31 @@ class _BluetoothBarState extends State<BluetoothBar> {
   }
 
   void getConnectedDevice() {
-    _device = Provider.of<WaterBaddiesState>(context, listen: false).device;
-    if (_device != null) {
+    final device = Provider.of<WaterBaddiesState>(context, listen: false).device;
+    if (device != null) {
+      _device = device;
       _isConnected = true;
+      _connectionSubscription = device.connectionState.listen((BluetoothConnectionState state) {
+        setState(() {
+          if (state == BluetoothConnectionState.disconnected) {
+            _isConnected = false;
+            Future<String> platformNameFuture = device.platformName == ""
+              ? getPlatfromName(device.remoteId.str)
+              : Future.value(device.platformName);
+
+          platformNameFuture.then((platformName) {
+            setState(() {
+              connectedMessage = "Disconnected from $platformName";
+            });
+          });
+          } else if (state == BluetoothConnectionState.connected) {
+            setState(() {
+              _isConnected = true;
+              connectedMessage = "Connected to ${device.platformName}";
+            });
+          }
+        });
+      });
     }
   }
 
