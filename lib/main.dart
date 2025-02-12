@@ -55,6 +55,7 @@ class WaterBaddiesState extends ChangeNotifier {
     if (newDevice != null) { // Only fetch characteristics if newDevice is not null
       createConnectionSubscription();
       fetchCharacteristics(_device!);
+      startFetchingCharacteristics(device!);
     }
     notifyListeners();  // Notify listeners when the device is updated
   }
@@ -67,12 +68,30 @@ class WaterBaddiesState extends ChangeNotifier {
     _connectionSub = newSub;
   }
 
-  String? _connectionMessage;
+  String _connectionMessage = "Please Connect a Bluetooth Device";
 
-  String? get connectionMessage => _connectionMessage;
+  String get connectionMessage => _connectionMessage;
 
   set connectionMessage(String? newMessage) {
-    _connectionMessage = newMessage;
+    // Check if the newMessage is null, if so, assign a default value.
+    _connectionMessage = newMessage ?? "Please Connect a Bluetooth Device";
+  }
+
+  void createConnectionSubscription() {
+    if (device != null) {
+      connectionSub = device!.connectionState.listen((BluetoothConnectionState state) {
+        if (state == BluetoothConnectionState.disconnected) {
+          connectionMessage = "Please Connect a Bluetooth Device";
+          device = null;
+          notifyListeners();
+        } else if (state == BluetoothConnectionState.connected) {
+          connectionMessage = "Connected";
+          notifyListeners();
+        }
+      });
+    } else {
+      connectionMessage = "Please Connect a Bluetooth Device";
+    }
   }
 
   Map<String, double> _characteristicsData = {};
@@ -84,19 +103,8 @@ class WaterBaddiesState extends ChangeNotifier {
   }
 
   Map<BluetoothCharacteristic, StreamSubscription<List<int>>> subscriptions = {};
-
-  void createConnectionSubscription(){
-    connectionSub = device!.connectionState.listen((BluetoothConnectionState state) {
-      if (state == BluetoothConnectionState.disconnected) {
-        connectionMessage = "Please Connect a Bluetooth Device";
-        device = null;
-        notifyListeners();
-      } else if (state == BluetoothConnectionState.connected) {
-        connectionMessage = "Connected";
-        notifyListeners();
-      }
-    });
-  }
+  List<BluetoothCharacteristic> characteristics = [];
+  List<dynamic> readingSubs = [];
 
   void clearSubscriptions() {
     subscriptions.forEach((characteristic, subscription) {
@@ -113,9 +121,8 @@ class WaterBaddiesState extends ChangeNotifier {
   void fetchCharacteristics(BluetoothDevice device) async {
     if (_device == null) throw Exception("Bluetooth device not set.");
 
-    final targetServiceUuid = "00000001-710e-4a5b-8d75-3e5b444bc3cf"; // Your service UUID
+    final targetServiceUuid = "00000001-710e-4a5b-8d75-3e5b444bc3cf";
 
-    // Map of characteristic UUIDs to descriptor UUIDs (and optionally names)
     final targetCharacteristics = [
       "00000002-110e-4a5b-8d75-3e5b444bc3cf", //Microplastic
       "00000002-210e-4a5b-8d75-3e5b444bc3cf", //Lead
@@ -132,45 +139,9 @@ class WaterBaddiesState extends ChangeNotifier {
 
       if (service != null) {
         for (final characteristic in service.characteristics) {
-            if (targetCharacteristics.contains(characteristic.uuid.toString())) {
-              try{
-                final charValue = await characteristic.read();
-                final charValueString = String.fromCharCodes(charValue);
-                final charValueDouble = double.tryParse(charValueString) ?? 0.0;
-
-                for (final descriptor in characteristic.descriptors) {
-                  if (descriptor.uuid.toString().toUpperCase() == "2901") {
-                    final descValue = await descriptor.read();
-                    if (descValue.isNotEmpty && !descValue.every((v) => v == 0)) {
-                      final descString = String.fromCharCodes(descValue);
-                      _characteristicsData[descString] = charValueDouble;
-                    }
-                  }
-                }
-
-                if (characteristic.properties.notify) {
-                  await characteristic.setNotifyValue(true);
-                  subscriptions[characteristic] = characteristic.lastValueStream.listen((value) async {
-                    final updatedCharValue = String.fromCharCodes(value);
-                    final updatedDoubleValue = double.tryParse(updatedCharValue) ?? 0.0;
-
-                    for (final descriptor in characteristic.descriptors) {
-                      if (descriptor.uuid.toString().toUpperCase() == "2901") {
-                        final descValue = await descriptor.read();
-                        if ((descValue as List).isNotEmpty && !(descValue as List).every((v) => v == 0)) {
-                          final descString = String.fromCharCodes(descValue);
-                          _characteristicsData[descString] = updatedDoubleValue;
-                        }
-                      }
-                    }
-                    notifyListeners();
-                    print("Notified");
-                  });
-                }
-              }catch(e){
-                print("Error reading characteristic: $e");
-              }
-            }
+          if (targetCharacteristics.contains(characteristic.uuid.toString())) {
+            characteristics.add(characteristic);
+          }
         }
       }
     } catch (e) {
@@ -178,13 +149,50 @@ class WaterBaddiesState extends ChangeNotifier {
     }
   }
 
+  void fetchNewData() async {
+    for (final characteristic in characteristics) {
+      try{
+        final charValue = await characteristic.read();
+        final charValueString = String.fromCharCodes(charValue);
+        final charValueDouble = double.tryParse(charValueString) ?? 0.0;
+
+        for (final descriptor in characteristic.descriptors) {
+          if (descriptor.uuid.toString().toUpperCase() == "2901") {
+            final descValue = await descriptor.read();
+            if (descValue.isNotEmpty && !descValue.every((v) => v == 0)) {
+              final descString = String.fromCharCodes(descValue);
+              _characteristicsData[descString] = charValueDouble;
+            }
+          }
+        }
+        notifyListeners();
+      } catch(e){
+        print("Error reading characteristic: $e");
+      }
+    }
+  }
+
+  Timer? _fetchTimer;
+
+  void startFetchingCharacteristics(BluetoothDevice device) {
+    _fetchTimer?.cancel(); // Cancel any existing timer
+    _fetchTimer = Timer.periodic(Duration(seconds: 5), (timer) {
+      fetchNewData();
+    });
+  }
+
+  void stopFetchingCharacteristics() {
+    _fetchTimer?.cancel();
+  }
+
   @override
   void dispose() {
     connectionSub?.cancel();
+    stopFetchingCharacteristics();
     super.dispose();
   }
-
 }
+
 
 ///The [BaddiesHomePage] is the first thing the user sees upon loading the app. It is able to be reactive because of the [_BaddiesHomePageState]
 class BaddiesHomePage extends StatefulWidget {
