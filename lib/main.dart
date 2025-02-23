@@ -102,6 +102,8 @@ class WaterBaddiesState extends ChangeNotifier {
     _characteristicsData = cd;
   }
 
+  bool newDataAvailable = false;
+
   Map<BluetoothCharacteristic, StreamSubscription<List<int>>> subscriptions = {};
   List<BluetoothCharacteristic> characteristics = [];
   List<dynamic> readingSubs = [];
@@ -130,6 +132,7 @@ class WaterBaddiesState extends ChangeNotifier {
       "00000002-410e-4a5b-8d75-3e5b444bc3cf", //Arsenic
       "00000002-510e-4a5b-8d75-3e5b444bc3cf", //Nitrite
       "00000002-610e-4a5b-8d75-3e5b444bc3cf", //Nitrate
+      "00000002-710e-4a5b-8d75-3e5b444bc3cf", //ChangeKey
     ];
 
     try {
@@ -172,12 +175,42 @@ class WaterBaddiesState extends ChangeNotifier {
     }
   }
 
+  void didKeyChange() async {
+    for (final characteristic in characteristics) {
+      if (characteristic.uuid.toString() == "00000002-710e-4a5b-8d75-3e5b444bc3cf") {
+        try{
+          final charValue = await characteristic.read();
+          final charValueString = String.fromCharCodes(charValue);
+          final charValueDouble = double.tryParse(charValueString) ?? 0.0;
+
+          for (final descriptor in characteristic.descriptors) {
+            if (descriptor.uuid.toString().toUpperCase() == "2901") {
+              final descValue = await descriptor.read();
+              if (descValue.isNotEmpty && !descValue.every((v) => v == 0)) {
+                final descString = String.fromCharCodes(descValue);
+                if (_characteristicsData[descString] != charValueDouble) {
+                  newDataAvailable = true;
+                }
+              }
+            }
+          }
+          notifyListeners();
+        } catch(e){
+          print("Error reading characteristic: $e");
+        }
+      }
+    }
+  }
+
   Timer? _fetchTimer;
 
   void startFetchingCharacteristics(BluetoothDevice device) {
     _fetchTimer?.cancel(); // Cancel any existing timer
     _fetchTimer = Timer.periodic(Duration(seconds: 5), (timer) {
-      fetchNewData();
+      didKeyChange();
+      if (newDataAvailable) {
+        fetchNewData();
+      }
     });
   }
 
@@ -418,6 +451,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
       addHistory(newData);
       setState(() {
         _displayedData = Map.from(newData);
+        wbState.newDataAvailable = false;
       });
     }
   }
@@ -443,7 +477,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
             ),
 
             Selector<WaterBaddiesState, bool>(
-              selector: (context, state) => !_mapEquality.equals(state.characteristicsData, _displayedData) && state.characteristicsData.isNotEmpty,
+              selector: (context, state) => state.newDataAvailable && state.characteristicsData.isNotEmpty,
               builder: (context, hasNewData, child) {
                 if (hasNewData) {
                   return Column(children: [
