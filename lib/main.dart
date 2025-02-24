@@ -43,7 +43,7 @@ class WaterBaddiesApp extends StatelessWidget {
 ///The [WaterBaddiesState] is a general state for the entire app
 ///The state stores the currently connected [device] which should be the Raspberry Pi
 ///When the device is initially connected [fetchCharacteristics] is run to get all of the characteristics of the bluetooth service
-///In the bluetoth characteristics are the values of each of the baddies (arsenic, lead, cadmium, nitrate, nitrite, and microplastics), along with each of their descriptors
+///In the bluetoth characteristics are the values of each of the baddies (mercury, lead, cadmium, nitrate, nitrite, and microplastics), along with each of their descriptors
 ///The [subscriptions] map is created which stores listeners who listen for updates in the values on each of the characteristics
 class WaterBaddiesState extends ChangeNotifier {
   BluetoothDevice? _device;
@@ -102,6 +102,7 @@ class WaterBaddiesState extends ChangeNotifier {
     _characteristicsData = cd;
   }
 
+  String changeKey = "";
   bool newDataAvailable = false;
 
   Map<BluetoothCharacteristic, StreamSubscription<List<int>>> subscriptions = {};
@@ -129,7 +130,7 @@ class WaterBaddiesState extends ChangeNotifier {
       "00000002-110e-4a5b-8d75-3e5b444bc3cf", //Microplastic
       "00000002-210e-4a5b-8d75-3e5b444bc3cf", //Lead
       "00000002-310e-4a5b-8d75-3e5b444bc3cf", //Cadmium
-      "00000002-410e-4a5b-8d75-3e5b444bc3cf", //Arsenic
+      "00000002-410e-4a5b-8d75-3e5b444bc3cf", //Mercury
       "00000002-510e-4a5b-8d75-3e5b444bc3cf", //Nitrite
       "00000002-610e-4a5b-8d75-3e5b444bc3cf", //Nitrate
       "00000002-710e-4a5b-8d75-3e5b444bc3cf", //ChangeKey
@@ -168,7 +169,6 @@ class WaterBaddiesState extends ChangeNotifier {
             }
           }
         }
-        notifyListeners();
       } catch(e){
         print("Error reading characteristic: $e");
       }
@@ -181,20 +181,11 @@ class WaterBaddiesState extends ChangeNotifier {
         try{
           final charValue = await characteristic.read();
           final charValueString = String.fromCharCodes(charValue);
-          final charValueDouble = double.tryParse(charValueString) ?? 0.0;
-
-          for (final descriptor in characteristic.descriptors) {
-            if (descriptor.uuid.toString().toUpperCase() == "2901") {
-              final descValue = await descriptor.read();
-              if (descValue.isNotEmpty && !descValue.every((v) => v == 0)) {
-                final descString = String.fromCharCodes(descValue);
-                if (_characteristicsData[descString] != charValueDouble) {
-                  newDataAvailable = true;
-                }
-              }
-            }
+          if (changeKey != charValueString) {
+            newDataAvailable = true;
+            changeKey = charValueString;
           }
-          notifyListeners();
+
         } catch(e){
           print("Error reading characteristic: $e");
         }
@@ -211,6 +202,7 @@ class WaterBaddiesState extends ChangeNotifier {
       if (newDataAvailable) {
         fetchNewData();
       }
+      notifyListeners();
     });
   }
 
@@ -403,8 +395,8 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     if (newData.containsKey('Cadmium') && newData['Cadmium']! > maxQuantities['Cadmium']!) {
       warningMessages.add("Cadmium");
     }
-    if (newData.containsKey('Arsenic') && newData['Arsenic']! > maxQuantities['Arsenic']!) {
-      warningMessages.add("Arsenic");
+    if (newData.containsKey('Mercury') && newData['Mercury']! > maxQuantities['Mercury']!) {
+      warningMessages.add("Mercury");
     }
     if (newData.containsKey('Nitrite') && newData['Nitrite']! > maxQuantities['Nitrite']!) {
       warningMessages.add("Nitrite");
@@ -433,7 +425,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
       "date": DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()).toString(),
       "lead": newData["Lead"],
       "cadmium": newData["Cadmium"],
-      "arsenic": newData["Arsenic"],
+      "mercury": newData["Mercury"],
       "nitrite": newData["Nitrite"],
       "nitrate": newData["Nitrate"],
       "microplastics": newData["Microplastic"],
@@ -447,13 +439,12 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
 
   void _updateDisplayedData() {
     final newData = wbState.characteristicsData;
-    if (!_mapEquality.equals(_displayedData, newData)) { 
-      addHistory(newData);
-      setState(() {
-        _displayedData = Map.from(newData);
-        wbState.newDataAvailable = false;
-      });
-    }
+    addHistory(newData);
+    setState(() {
+      _displayedData = Map.from(newData);
+      wbState.newDataAvailable = false;
+    });
+
   }
 
   @override
@@ -505,7 +496,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
             Column(
               children: [
               InfoCard(
-                key: ValueKey("Metals${_displayedData["Lead"]}${_displayedData["Cadmium"]}${_displayedData["Arsenic"]}"),
+                key: ValueKey("Metals${_displayedData["Lead"]}${_displayedData["Cadmium"]}${_displayedData["Mercury"]}"),
                 showChart: showMetalChart,
                 showInfo: showMetalInfo,
                 cardTitle: "Metals",
@@ -518,11 +509,11 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                           'maxQuantity': maxQuantities['Cadmium'],
                           'quantity': _displayedData["Cadmium"],
                         },
-                      if (_displayedData.containsKey("Arsenic"))
+                      if (_displayedData.containsKey("Mercury"))
                         {
-                          'name': 'Arsenic',
-                          'maxQuantity': maxQuantities['Arsenic'],
-                          'quantity': _displayedData["Arsenic"],
+                          'name': 'Mercury',
+                          'maxQuantity': maxQuantities['Mercury'],
+                          'quantity': _displayedData["Mercury"],
                         },
                       if (_displayedData.containsKey("Lead"))
                         {
@@ -634,7 +625,7 @@ class _HistoryState extends State<History> {
                     children: [
                       _buildKeyValueRow('lead', "${data[index]['lead']} parts/million"),
                       _buildKeyValueRow('cadmium', "${data[index]['cadmium']} parts/million"),
-                      _buildKeyValueRow('arsenic', "${data[index]['arsenic']} parts/million"),
+                      _buildKeyValueRow('mercury', "${data[index]['mercury']} parts/million"),
                       _buildKeyValueRow('nitrate', "${data[index]['nitrate']} parts/million"),
                       _buildKeyValueRow('nitrite', "${data[index]['nitrite']} parts/million"),
                       _buildKeyValueRow('microplastics', "${data[index]['microplastics']} parts/million"),
@@ -758,7 +749,7 @@ class _InfoCardState extends State<InfoCard> {
                     children: [
                       Expanded( // Or Flexible(flex: 2,) for more control
                         child: Text(
-                          "Heavy Metals - Lead, Arsenic, and Cadmium",
+                          "Heavy Metals - Lead, Mercury, and Cadmium",
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           softWrap: true, // Allow text to wrap to multiple lines
                         ),
@@ -779,7 +770,7 @@ class _InfoCardState extends State<InfoCard> {
                       _buildText('Sources: Old lead-based paint, contaminated water pipes, industrial emissions.'),
                       _buildText('Effects: Neurological damage (especially in children), developmental problems, kidney damage, high blood pressure.'),
 
-                      _buildSubSectionTitle('Arsenic'),
+                      _buildSubSectionTitle('Mercury'),
                       _buildText('Sources: Contaminated drinking water (especially groundwater), industrial waste, pesticides.'),
                       _buildText('Effects: Skin lesions, various cancers (lung, bladder, skin), cardiovascular disease, developmental problems.'),
 
