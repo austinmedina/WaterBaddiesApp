@@ -8,6 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:vibration/vibration.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'dart:math';
 
 import 'screens/bluetooth/bluetoothBar.dart';
 import 'screens/home/barChart.dart';
@@ -55,7 +58,7 @@ class WaterBaddiesState extends ChangeNotifier {
     if (newDevice != null) { // Only fetch characteristics if newDevice is not null
       createConnectionSubscription();
       fetchCharacteristics(_device!);
-      startFetchingCharacteristics(device!);
+      startFetchingCharacteristics();
     }
     notifyListeners();  // Notify listeners when the device is updated
   }
@@ -195,14 +198,15 @@ class WaterBaddiesState extends ChangeNotifier {
 
   Timer? _fetchTimer;
 
-  void startFetchingCharacteristics(BluetoothDevice device) {
+  void startFetchingCharacteristics() {
     _fetchTimer?.cancel(); // Cancel any existing timer
-    _fetchTimer = Timer.periodic(Duration(seconds: 5), (timer) {
+    _fetchTimer = Timer.periodic(Duration(seconds: 3), (timer) {
       didKeyChange();
       if (newDataAvailable) {
         fetchNewData();
       }
       notifyListeners();
+
     });
   }
 
@@ -319,7 +323,7 @@ class WaterBaddiesInfo extends StatefulWidget {
 class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
   Map<String, double> _displayedData = {};
   WaterBaddiesState wbState = WaterBaddiesState();
-  final DeepCollectionEquality _mapEquality = const DeepCollectionEquality();
+  final FlutterTts flutterTts = FlutterTts();
 
   late final BooleanWrapper showMetalChart;
   late final BooleanWrapper showInorganicsChart;
@@ -338,6 +342,17 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     showMetalInfo = BooleanWrapper(false);
     showInorganicsInfo = BooleanWrapper(false);
     showPlasticInfo = BooleanWrapper(false);
+    _initTts();
+  }
+
+  _initTts() async {
+    await flutterTts.setLanguage("en-US");
+    await flutterTts.setPitch(1);
+    await flutterTts.setSpeechRate(0.5);
+  }
+
+  Future _speak(String text) async {
+    await flutterTts.speak(text);
   }
 
   Future<Map<String, double>> _getLocation() async {
@@ -408,10 +423,10 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     return warningMessages;
   }
 
-  void addHistory(Map<String, double> newData) async {
+  Future<void> addHistory(Map<String, double?> newData) async {
     final prefs = await SharedPreferences.getInstance();
     List<Map<String, dynamic>> historyInfo = [];
-    
+
     // Retrieve any previously saved data
     if (prefs.containsKey('history')) {
       String? savedData = prefs.getString('history');
@@ -420,31 +435,116 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
       }
     }
 
-    historyInfo.add(
-      {
-      "date": DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()).toString(),
-      "lead": newData["Lead"],
-      "cadmium": newData["Cadmium"],
-      "mercury": newData["Mercury"],
-      "nitrite": newData["Nitrite"],
-      "nitrate": newData["Nitrate"],
-      "microplastics": newData["Microplastic"],
-      "location": await _getLocation(),
-      "healthy": _getHealthy(newData)
-      }
-    );
+    Map<String, dynamic> newEntry = {
+      "Date": DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()).toString(),
+    };
+
+    if (newData.containsKey("Lead") && newData["Lead"] != null) {
+      newEntry["lead"] = newData["Lead"];
+    }
+    if (newData.containsKey("Cadmium") && newData["Cadmium"] != null) {
+      newEntry["cadmium"] = newData["Cadmium"];
+    }
+    if (newData.containsKey("Mercury") && newData["Mercury"] != null) {
+      newEntry["mercury"] = newData["Mercury"];
+    }
+    if (newData.containsKey("Nitrite") && newData["Nitrite"] != null) {
+      newEntry["nitrite"] = newData["Nitrite"];
+    }
+    if (newData.containsKey("Nitrate") && newData["Nitrate"] != null) {
+      newEntry["nitrate"] = newData["Nitrate"];
+    }
+    if (newData.containsKey("Microplastic") && newData["Microplastic"] != null) {
+      newEntry["microplastic"] = newData["Microplastic"];
+    }
+
+    newEntry["location"] = await _getLocation();
+    newEntry["healthy"] = _getHealthy(newData.cast<String, double>()); //cast back to double for _getHealthy()
+
+    historyInfo.add(newEntry);
 
     await prefs.setString('history', jsonEncode(historyInfo));
   }
 
-  void _updateDisplayedData() {
+  List<String> _checkData(Map<String, double> newData) {
+    List<String> warningMessages = [];
+    newData.forEach((key, value) {
+      double? max = maxQuantities[key];
+
+      if (max != null && value > max) {
+        warningMessages.add("High Levels of $key");
+      }
+    });
+
+    return warningMessages;
+  }
+
+  // Map<String, double> generateRandomData() {
+  //   final Random random = Random(); // Create a Random object
+
+  //   // Generate random numbers between 120.00 and 150.00
+  //   double generateRandomValue() {
+  //     return 120.00 + random.nextDouble() * (150.00 - 120.00);
+  //   }
+
+  //   Map<String, double> _characteristicsData = {};
+
+  //   _characteristicsData['Lead'] = generateRandomValue();
+  //   _characteristicsData['Cadmium'] = generateRandomValue();
+  //   _characteristicsData['Mercury'] = generateRandomValue();
+  //   _characteristicsData['Arsenic'] = generateRandomValue();
+  //   _characteristicsData['Nitrite'] = generateRandomValue();
+  //   _characteristicsData['Nitrate'] = generateRandomValue();
+  //   _characteristicsData['Microplastic'] = generateRandomValue();
+
+  //   return _characteristicsData;
+  // }
+  
+  void _updateDisplayedData(BuildContext context) {
     final newData = wbState.characteristicsData;
+    //Map<String, double> newData = generateRandomData();
+    wbState.newDataAvailable = true;
     addHistory(newData);
     setState(() {
+      List<String> warningMessages = _checkData(newData);
+      if (warningMessages.isNotEmpty) {
+        _showWarningDialog(context, warningMessages);
+        Vibration.vibrate(pattern: [500, 1000, 500, 2000]);
+        String fullMessage = warningMessages.join(". ");
+        _speak(fullMessage);
+      }
       _displayedData = Map.from(newData);
       wbState.newDataAvailable = false;
     });
+  }
 
+  void _showWarningDialog(BuildContext context, List<String> messages) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('WARNING!'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: messages.map((message) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Text(message),
+              )).toList(),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -470,7 +570,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
             Selector<WaterBaddiesState, bool>(
               selector: (context, state) => state.newDataAvailable && state.characteristicsData.isNotEmpty,
               builder: (context, hasNewData, child) {
-                if (hasNewData) {
+                // if (hasNewData) {
                   return Column(children: [
                     Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -483,13 +583,15 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                       ),
                     ),
                     ElevatedButton(
-                      onPressed: _updateDisplayedData,
+                      onPressed: () {
+                        _updateDisplayedData(context);
+                      },
                       child: Text("Fetch New Data"),
                     ),
                   ]);
-                } else {
-                  return const SizedBox.shrink();
-                }
+                // } else {
+                //   return const SizedBox.shrink();
+                // }
               }
             ),
 
@@ -598,6 +700,39 @@ class _HistoryState extends State<History> {
     return [];
   }
 
+  Widget _buildKeyValueRow(String key, Map<String, dynamic> data) {
+    dynamic value = data[key]; // Try to get the value
+    String displayValue = "No Value";
+
+    if (value != null) {
+      if(key == "location"){
+        displayValue = "${value['latitude']}, ${value['longitude']}";
+      } else {
+        displayValue = value.toString();
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 1,
+            child: Text(
+              '$key:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(displayValue),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Center (
@@ -623,13 +758,13 @@ class _HistoryState extends State<History> {
                     title: Text(data[index]['date']),
                     subtitle: Text("High levels of: ${data[index]['healthy'].join(', ')}"),
                     children: [
-                      _buildKeyValueRow('lead', "${data[index]['lead']} parts/million"),
-                      _buildKeyValueRow('cadmium', "${data[index]['cadmium']} parts/million"),
-                      _buildKeyValueRow('mercury', "${data[index]['mercury']} parts/million"),
-                      _buildKeyValueRow('nitrate', "${data[index]['nitrate']} parts/million"),
-                      _buildKeyValueRow('nitrite', "${data[index]['nitrite']} parts/million"),
-                      _buildKeyValueRow('microplastics', "${data[index]['microplastics']} parts/million"),
-                      _buildKeyValueRow('location', "${data[index]['location']['latitude']}, ${data[index]['location']['longitude']}"),
+                      _buildKeyValueRow('lead', data[index]),
+                      _buildKeyValueRow('cadmium', data[index]),
+                      _buildKeyValueRow('mercury', data[index]),
+                      _buildKeyValueRow('nitrate', data[index]),
+                      _buildKeyValueRow('nitrite', data[index]),
+                      _buildKeyValueRow('microplastics', data[index]),
+                      _buildKeyValueRow('location', data[index]),
                     ],
                     ),
                 );
@@ -640,28 +775,6 @@ class _HistoryState extends State<History> {
         return Container();
       }
       )
-    );
-  }
-
-  Widget _buildKeyValueRow(String key, dynamic value) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 1,
-            child: Text(
-              '$key:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(value.toString()),
-          ),
-        ],
-      ),
     );
   }
 }
