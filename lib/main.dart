@@ -10,7 +10,10 @@ import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:vibration/vibration.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'dart:math';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
+import 'dart:io';
 
 import 'screens/bluetooth/bluetoothBar.dart';
 import 'screens/home/barChart.dart';
@@ -391,8 +394,8 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     // continue accessing the position of the device.
     Position position = await Geolocator.getCurrentPosition();
     return {
-      "latitude": position.latitude,
-      "longitude": position.longitude,
+      "Latitude": position.latitude,
+      "Longitude": position.longitude,
     };
   }
 
@@ -440,26 +443,26 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     };
 
     if (newData.containsKey("Lead") && newData["Lead"] != null) {
-      newEntry["lead"] = newData["Lead"];
+      newEntry["Lead"] = newData["Lead"];
     }
     if (newData.containsKey("Cadmium") && newData["Cadmium"] != null) {
-      newEntry["cadmium"] = newData["Cadmium"];
+      newEntry["Cadmium"] = newData["Cadmium"];
     }
     if (newData.containsKey("Mercury") && newData["Mercury"] != null) {
-      newEntry["mercury"] = newData["Mercury"];
+      newEntry["Mercury"] = newData["Mercury"];
     }
     if (newData.containsKey("Nitrite") && newData["Nitrite"] != null) {
-      newEntry["nitrite"] = newData["Nitrite"];
+      newEntry["Nitrite"] = newData["Nitrite"];
     }
     if (newData.containsKey("Nitrate") && newData["Nitrate"] != null) {
-      newEntry["nitrate"] = newData["Nitrate"];
+      newEntry["Nitrate"] = newData["Nitrate"];
     }
     if (newData.containsKey("Microplastic") && newData["Microplastic"] != null) {
-      newEntry["microplastic"] = newData["Microplastic"];
+      newEntry["Microplastic"] = newData["Microplastic"];
     }
 
-    newEntry["location"] = await _getLocation();
-    newEntry["healthy"] = _getHealthy(newData.cast<String, double>()); //cast back to double for _getHealthy()
+    newEntry["Location"] = await _getLocation();
+    newEntry["Healthy"] = _getHealthy(newData.cast<String, double>()); //cast back to double for _getHealthy()
 
     historyInfo.add(newEntry);
 
@@ -570,7 +573,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
             Selector<WaterBaddiesState, bool>(
               selector: (context, state) => state.newDataAvailable && state.characteristicsData.isNotEmpty,
               builder: (context, hasNewData, child) {
-                // if (hasNewData) {
+                if (hasNewData) {
                   return Column(children: [
                     Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -589,9 +592,9 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                       child: Text("Fetch New Data"),
                     ),
                   ]);
-                // } else {
-                //   return const SizedBox.shrink();
-                // }
+                } else {
+                  return const SizedBox.shrink();
+                }
               }
             ),
 
@@ -690,6 +693,98 @@ class _HistoryState extends State<History> {
 
   late Future<List<Map<String, dynamic>>> history;
 
+  Future<void> createPDF(Map<String, dynamic> data) async {
+    final pdf = pw.Document();
+
+    final concentrations = {
+      'Arsenic': data['Arsenic'] ?? 0.0,
+      'Mercury': data['Mercury'] ?? 0.0,
+      'Lead': data['Lead'] ?? 0.0,
+      'Cadmium': data['Cadmium'] ?? 0.0,
+      'Nitrate': data['Nitrate'] ?? 0.0,
+      'Nitrite': data['Nitrite'] ?? 0.0,
+      'Microplastics': data['Microplastic'] ?? 0.0,
+    };
+
+    const epaLimits = {
+      'Arsenic': 0.01,
+      'Mercury': 0.002,
+      'Lead': 0.015,
+      'Cadmium': 0.005,
+      'Nitrate': 10.0,
+      'Nitrite': 1.0,
+      'Microplastics': 0.0,
+    };
+
+    final date = data['Date'] ?? 'Unknown Date';
+    final longitude = data['Location']['Longitude'] ?? 'Unknown';
+    final latitude = data['Location']['Latitude'] ?? 'Unknown';
+
+    pdf.addPage(
+      pw.Page(
+        build: (pw.Context context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Center(
+            child: pw.Column(
+              children: [
+                pw.Text(
+                  'Water Baddies Concentration',
+                  style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  '$date : $longitude, $latitude',
+                  style: pw.TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 10),
+            pw.TableHelper.fromTextArray(
+              headers: [
+                'Contaminant',
+                'Concentration (mg/L)',
+                'Max Allowed (mg/L)',
+                'Status'
+              ],
+              data: concentrations.entries.map((entry) {
+                final epaLimit = epaLimits[entry.key] ?? 0.0;
+                final bool hasValue = entry.value != null && entry.value != 0.0;
+                final concentration =
+                    hasValue ? entry.value.toStringAsFixed(3) : 'No Value';
+                final status = hasValue
+                    ? (entry.value > epaLimit ? 'Exceeded' : 'Safe')
+                    : 'Safe';
+
+                return [
+                  entry.key,
+                  concentration,
+                  epaLimit.toStringAsFixed(3),
+                  status
+                ];
+              }).toList(),
+              border: pw.TableBorder.all(),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              cellAlignment: pw.Alignment.centerLeft,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    
+    final bytes = await pdf.save();
+
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File('${dir.path}/WaterBaddiesConcentration.pdf');
+
+    File savedFile = await file.writeAsBytes(bytes);
+
+    await OpenFile.open(savedFile.path);
+
+  }
+
   Future<List<Map<String, dynamic>>> fetchHistory() async {
     final prefs = await SharedPreferences.getInstance();
     String? savedData = prefs.getString('history');
@@ -705,8 +800,8 @@ class _HistoryState extends State<History> {
     String displayValue = "No Value";
 
     if (value != null) {
-      if(key == "location"){
-        displayValue = "${value['latitude']}, ${value['longitude']}";
+      if(key == "Location"){
+        displayValue = "${value['Latitude']}, ${value['Longitude']}";
       } else {
         displayValue = value.toString();
       }
@@ -755,16 +850,28 @@ class _HistoryState extends State<History> {
               itemBuilder: (context, index) {
                 return Card(
                   child: ExpansionTile(
-                    title: Text(data[index]['date']),
-                    subtitle: Text("High levels of: ${data[index]['healthy'].join(', ')}"),
+                    title: (data[index].containsKey('Date') 
+                    ? Text(data[index]['Date']) 
+                    : const Text("No Date")),
+                    subtitle: Text("High levels of: ${data[index]['Healthy'].join(', ')}"),
                     children: [
-                      _buildKeyValueRow('lead', data[index]),
-                      _buildKeyValueRow('cadmium', data[index]),
-                      _buildKeyValueRow('mercury', data[index]),
-                      _buildKeyValueRow('nitrate', data[index]),
-                      _buildKeyValueRow('nitrite', data[index]),
-                      _buildKeyValueRow('microplastics', data[index]),
-                      _buildKeyValueRow('location', data[index]),
+                      _buildKeyValueRow('Lead', data[index]),
+                      _buildKeyValueRow('Cadmium', data[index]),
+                      _buildKeyValueRow('Mercury', data[index]),
+                      _buildKeyValueRow('Nitrate', data[index]),
+                      _buildKeyValueRow('Nitrite', data[index]),
+                      _buildKeyValueRow('Microplastic', data[index]),
+                      _buildKeyValueRow('Location', data[index]),
+                      const SizedBox(height: 10),
+                      ElevatedButton(
+                        onPressed: () async {
+                          await createPDF(data[index]);
+                          // ScaffoldMessenger.of(context).showSnackBar(
+                          //   SnackBar(content: Text('PDF generated successfully'))
+                          // );
+                        },
+                        child: Text('Generate PDF'),
+                      ),
                     ],
                     ),
                 );
