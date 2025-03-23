@@ -251,7 +251,7 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
       case 1:
         page = History();
       case 2:
-        page = Placeholder();
+        page = About();
       default:
         throw UnimplementedError('no widget for $currentPageIndex');
     }
