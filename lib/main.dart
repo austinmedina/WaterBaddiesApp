@@ -1052,3 +1052,19 @@ class _InfoCardState extends State<InfoCard> {
   }
 }
 
+class About extends StatefulWidget {
+  const About({super.key});
+
+  @override
+  State<About> createState() => _AboutState();
+}
+
+class _AboutState extends State<About> {
+  
+  @override
+  Widget build(BuildContext context) {
+    // TODO: implement build
+    throw UnimplementedError();
+  }
+}
+
