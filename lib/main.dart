@@ -49,7 +49,7 @@ class WaterBaddiesApp extends StatelessWidget {
 ///The [WaterBaddiesState] is a general state for the entire app
 ///The state stores the currently connected [device] which should be the Raspberry Pi
 ///When the device is initially connected [fetchCharacteristics] is run to get all of the characteristics of the bluetooth service
-///In the bluetoth characteristics are the values of each of the baddies (mercury, lead, cadmium, nitrate, nitrite, and microplastics), along with each of their descriptors
+///In the bluetoth characteristics are the values of each of the baddies (mercury, lead, cadmium, nitrate, phosphate, and microplastics), along with each of their descriptors
 ///The [subscriptions] map is created which stores listeners who listen for updates in the values on each of the characteristics
 class WaterBaddiesState extends ChangeNotifier {
   BluetoothDevice? _device;
@@ -137,7 +137,7 @@ class WaterBaddiesState extends ChangeNotifier {
       "00000002-210e-4a5b-8d75-3e5b444bc3cf", //Lead
       "00000002-310e-4a5b-8d75-3e5b444bc3cf", //Cadmium
       "00000002-410e-4a5b-8d75-3e5b444bc3cf", //Mercury
-      "00000002-510e-4a5b-8d75-3e5b444bc3cf", //Nitrite
+      "00000002-510e-4a5b-8d75-3e5b444bc3cf", //Phosphate
       "00000002-610e-4a5b-8d75-3e5b444bc3cf", //Nitrate
       "00000002-710e-4a5b-8d75-3e5b444bc3cf", //ChangeKey
     ];
@@ -416,8 +416,8 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     if (newData.containsKey('Mercury') && newData['Mercury']! > maxQuantities['Mercury']!) {
       warningMessages.add("Mercury");
     }
-    if (newData.containsKey('Nitrite') && newData['Nitrite']! > maxQuantities['Nitrite']!) {
-      warningMessages.add("Nitrite");
+    if (newData.containsKey('Phosphate') && newData['Phosphate']! > maxQuantities['Phosphate']!) {
+      warningMessages.add("Phosphate");
     }
     if (newData.containsKey('Nitrate') && newData['Nitrate']! > maxQuantities['Nitrate']!) {
       warningMessages.add("Nitrate");
@@ -451,8 +451,8 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     if (newData.containsKey("Mercury") && newData["Mercury"] != null) {
       newEntry["Mercury"] = newData["Mercury"];
     }
-    if (newData.containsKey("Nitrite") && newData["Nitrite"] != null) {
-      newEntry["Nitrite"] = newData["Nitrite"];
+    if (newData.containsKey("Phosphate") && newData["Phosphate"] != null) {
+      newEntry["Phosphate"] = newData["Phosphate"];
     }
     if (newData.containsKey("Nitrate") && newData["Nitrate"] != null) {
       newEntry["Nitrate"] = newData["Nitrate"];
@@ -495,8 +495,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
   //   _characteristicsData['Lead'] = generateRandomValue();
   //   _characteristicsData['Cadmium'] = generateRandomValue();
   //   _characteristicsData['Mercury'] = generateRandomValue();
-  //   _characteristicsData['Arsenic'] = generateRandomValue();
-  //   _characteristicsData['Nitrite'] = generateRandomValue();
+  //   _characteristicsData['Phosphate'] = generateRandomValue();
   //   _characteristicsData['Nitrate'] = generateRandomValue();
   //   _characteristicsData['Microplastic'] = generateRandomValue();
 
@@ -629,18 +628,18 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                     ].where((element) => element.isNotEmpty).toList()
               ),
               InfoCard(
-                key: ValueKey("Inorganics${_displayedData["Nitrite"]}${_displayedData["Nitrate"]}"), 
+                key: ValueKey("Inorganics${_displayedData["Phosphate"]}${_displayedData["Nitrate"]}"), 
                 showChart: showInorganicsChart,
                 showInfo: showInorganicsInfo,
                 cardTitle: "Inorganics",
                 barChartData: _displayedData.isEmpty
                     ? []
                     : [
-                        if (_displayedData.containsKey("Nitrite"))
+                        if (_displayedData.containsKey("Phosphate"))
                           {
-                            'name': 'Nitrites',
-                            'maxQuantity': maxQuantities['Nitrite'],
-                            'quantity': _displayedData["Nitrite"],
+                            'name': 'Phosphate',
+                            'maxQuantity': maxQuantities['Phosphate'],
+                            'quantity': _displayedData["Phosphate"],
                           },
                         if (_displayedData.containsKey("Nitrate"))
                           {
@@ -697,22 +696,20 @@ class _HistoryState extends State<History> {
     final pdf = pw.Document();
 
     final concentrations = {
-      'Arsenic': data['Arsenic'] ?? 0.0,
       'Mercury': data['Mercury'] ?? 0.0,
       'Lead': data['Lead'] ?? 0.0,
       'Cadmium': data['Cadmium'] ?? 0.0,
       'Nitrate': data['Nitrate'] ?? 0.0,
-      'Nitrite': data['Nitrite'] ?? 0.0,
+      'Phosphate': data['Phosphate'] ?? 0.0,
       'Microplastics': data['Microplastic'] ?? 0.0,
     };
 
     const epaLimits = {
-      'Arsenic': 0.01,
       'Mercury': 0.002,
       'Lead': 0.015,
       'Cadmium': 0.005,
       'Nitrate': 10.0,
-      'Nitrite': 1.0,
+      'Phosphate': 1.0,
       'Microplastics': 0.0,
     };
 
@@ -859,7 +856,7 @@ class _HistoryState extends State<History> {
                       _buildKeyValueRow('Cadmium', data[index]),
                       _buildKeyValueRow('Mercury', data[index]),
                       _buildKeyValueRow('Nitrate', data[index]),
-                      _buildKeyValueRow('Nitrite', data[index]),
+                      _buildKeyValueRow('Phosphate', data[index]),
                       _buildKeyValueRow('Microplastic', data[index]),
                       _buildKeyValueRow('Location', data[index]),
                       const SizedBox(height: 10),
