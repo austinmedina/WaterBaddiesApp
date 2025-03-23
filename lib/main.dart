@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -6,11 +7,11 @@ import 'utils/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'package:intl/intl.dart';
-import 'package:geolocator/geolocator.dart';
+// import 'package:intl/intl.dart';
+// import 'package:geolocator/geolocator.dart';
 
 import 'screens/bluetooth/bluetoothBar.dart';
-import 'screens/home/barChart.dart';
+// import 'screens/home/barChart.dart';
 
 ///The main method that instantiates an instance of the entire app
 void main() {
@@ -32,7 +33,7 @@ class WaterBaddiesApp extends StatelessWidget {
         title: 'Water Baddies App',
         theme: ThemeData(
           useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 16, 122, 6)),
+          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff1E90FF)), 
         ),
         home: BaddiesHomePage(),
       ),
@@ -85,6 +86,7 @@ class WaterBaddiesState extends ChangeNotifier {
       "00000002-410e-4a5b-8d75-3e5b444bc3cf", //Arsenic
       "00000002-510e-4a5b-8d75-3e5b444bc3cf", //Nitrite
       "00000002-610e-4a5b-8d75-3e5b444bc3cf", //Nitrate
+      "00000002-710e-4a5b-8d75-3e5b444bc3cf", //Phosphate
     ];
 
     try {
@@ -262,43 +264,43 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
   }
 
   Future<Map<String, double>> _getLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
+    // bool serviceEnabled;
+    // LocationPermission permission;
 
-    // Test if location services are enabled.
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      // Location services are not enabled don't continue
-      // accessing the position and request users of the 
-      // App to enable the location services.
-      return Future.error('Location services are disabled.');
-    }
+    // // Test if location services are enabled.
+    // serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    // if (!serviceEnabled) {
+    //   // Location services are not enabled don't continue
+    //   // accessing the position and request users of the 
+    //   // App to enable the location services.
+    //   return Future.error('Location services are disabled.');
+    // }
 
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        // Permissions are denied, next time you could try
-        // requesting permissions again (this is also where
-        // Android's shouldShowRequestPermissionRationale 
-        // returned true. According to Android guidelines
-        // your App should show an explanatory UI now.
-        return Future.error('Location permissions are denied');
-      }
-    }
+    // permission = await Geolocator.checkPermission();
+    // if (permission == LocationPermission.denied) {
+    //   permission = await Geolocator.requestPermission();
+    //   if (permission == LocationPermission.denied) {
+    //     // Permissions are denied, next time you could try
+    //     // requesting permissions again (this is also where
+    //     // Android's shouldShowRequestPermissionRationale 
+    //     // returned true. According to Android guidelines
+    //     // your App should show an explanatory UI now.
+    //     return Future.error('Location permissions are denied');
+    //   }
+    // }
 
-    if (permission == LocationPermission.deniedForever) {
-      // Permissions are denied forever, handle appropriately. 
-      return Future.error(
-        'Location permissions are permanently denied, we cannot request permissions.');
-    } 
+    // if (permission == LocationPermission.deniedForever) {
+    //   // Permissions are denied forever, handle appropriately. 
+    //   return Future.error(
+    //     'Location permissions are permanently denied, we cannot request permissions.');
+    // } 
 
-    // When we reach here, permissions are granted and we can
-    // continue accessing the position of the device.
-    Position position = await Geolocator.getCurrentPosition();
+    // // When we reach here, permissions are granted and we can
+    // // continue accessing the position of the device.
+    // Position position = await Geolocator.getCurrentPosition();
     return {
-      "latitude": position.latitude,
-      "longitude": position.longitude,
+      "latitude": 0,
+      "longitude": 0,
     };
   }
 
@@ -325,7 +327,9 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     if (newData.containsKey('Nitrate') && newData['Nitrate']! > maxQuantities['Nitrate']!) {
       warningMessages.add("High Nitrate Levels");
     }
-
+    if (newData.containsKey('Phosphate') && newData['Phosphate']! > maxQuantities['Phosphate']!) {
+      warningMessages.add("High Phosphate Levels");
+    }
     return warningMessages;
   }
 
@@ -343,12 +347,13 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
 
     historyInfo.add(
       {
-      "date": DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()).toString(),
+      "date": "1/1/2025",
       "lead": newData["Lead"],
       "cadmium": newData["Cadmium"],
       "arsenic": newData["Arsenic"],
       "nitrite": newData["Nitrite"],
       "nitrate": newData["Nitrate"],
+      "phosphate": newData["Phosphate"],
       "microplastics": newData["Microplastic"],
       "location": await _getLocation(),
       "healthy": _getHealthy(newData)
@@ -372,7 +377,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
   Widget build(BuildContext context) {
     return DefaultTextStyle(
       style: Theme.of(context).textTheme.displayMedium!,
-      textAlign: TextAlign.center,
+      textAlign: TextAlign.left,
       child: SingleChildScrollView(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -394,8 +399,8 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                       child: Text(
                         "New data is available!",
                         style: TextStyle(
-                          fontSize: 16, 
-                          color: const Color.fromARGB(255, 0, 0, 0),
+                          fontSize: 20, 
+                          color: const Color.fromARGB(255, 23, 28, 127),
                         ),
                       ),
                     ),
@@ -444,10 +449,10 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                           'maxQuantity': maxQuantities['Lead'],
                           'quantity': _displayedData["Lead"],
                         },
-                    ].where((element) => element.isNotEmpty).toList()
+                    ].where((element) => element.isNotEmpty).toList(), content: [], imagePath: '',
               ),
               InfoCard(
-                key: ValueKey("Inorganics${_displayedData["Nitrite"]}${_displayedData["Nitrate"]}"), 
+                key: ValueKey("Inorganics${_displayedData["Nitrite"]}${_displayedData["Nitrate"]}${_displayedData["Phosphate"]}"), 
                 showChart: showInorganicsChart,
                 showInfo: showInorganicsInfo,
                 cardTitle: "Inorganics",
@@ -466,7 +471,13 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                             'maxQuantity': maxQuantities['Nitrate'],
                             'quantity': _displayedData["Nitrate"],
                           },
-                      ].where((element) => element.isNotEmpty).toList(),
+                          if (_displayedData.containsKey("Phosphate"))
+                          {
+                            'name': 'Phosphates',
+                            'maxQuantity': maxQuantities['Phosphate'],
+                            'quantity': _displayedData["Phosphate"],
+                          },
+                      ].where((element) => element.isNotEmpty).toList(), content: [], imagePath: '',
               ),
               InfoCard(
                 key: ValueKey("Microplastics${_displayedData["Microplastic"]}"),
@@ -483,7 +494,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                               'quantity': _displayedData["Microplastic"]
                             }
                           ]
-                        : [], // Return empty list if key is missing
+                        : [], content: [], imagePath: '', // Return empty list if key is missing
               ),
             ]
           )
@@ -552,6 +563,7 @@ class _HistoryState extends State<History> {
                       _buildKeyValueRow('arsenic', data[index]['arsenic']),
                       _buildKeyValueRow('nitrate', data[index]['nitrate']),
                       _buildKeyValueRow('nitrite', data[index]['nitrite']),
+                      _buildKeyValueRow('phosphate', data[index]['phosphate']),
                       _buildKeyValueRow('microplastics', data[index]['microplastics']),
                       _buildKeyValueRow('location', data[index]['location']),
                     ],
@@ -589,7 +601,6 @@ class _HistoryState extends State<History> {
     );
   }
 }
-
 class InfoCard extends StatefulWidget {
   const InfoCard({
     super.key,
@@ -597,18 +608,24 @@ class InfoCard extends StatefulWidget {
     required this.showInfo,
     required this.cardTitle,
     required this.barChartData,
+    this.content = const [],
+    this.imagePath = '',
   });
 
   final BooleanWrapper showChart;
   final BooleanWrapper showInfo;
   final String cardTitle;
   final List<Map<String, dynamic>> barChartData;
+  final List<Map<String, dynamic>> content;
+  final String imagePath;
 
   @override
-  State<InfoCard> createState() => _InfoCardState();
+  State<InfoCard> createState() => InfoCardState();
 }
 
-class _InfoCardState extends State<InfoCard> {
+class InfoCardState extends State<InfoCard> {
+  bool _showMoreInfo = false;
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -616,119 +633,95 @@ class _InfoCardState extends State<InfoCard> {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           ListTile(
-            leading: Icon(Icons.barcode_reader),
+            leading: Icon(Icons.info),
             title: Text(widget.cardTitle),
-            subtitle: Text("More Information"),
+            //subtitle: Text("More Information"),
           ),
-          Row (
+          Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              widget.barChartData.isEmpty 
-                ? TextButton(
-                  child: Text("No Data"),
-                  onPressed: () {},
-                )
-                : TextButton(
-                  child: Text("View Chart"),
-                  onPressed: () {
-                    setState(() {
-                      widget.showChart.value = !widget.showChart.value;
-                    });
-                  },
-                ),
+              widget.barChartData.isEmpty
+                  ? TextButton(
+                      child: Text("No Data"),
+                      onPressed: () {},
+                    )
+                  : TextButton(
+                      child: Text("View Chart"),
+                      onPressed: () {
+                        setState(() {
+                          widget.showChart.value = !widget.showChart.value;
+                        });
+                      },
+                    ),
               SizedBox(width: 8),
               TextButton(
                 child: Text("More Information"),
                 onPressed: () {
                   setState(() {
-                    widget.showInfo.value = !widget.showInfo.value;
+                    _showMoreInfo = !_showMoreInfo;
                   });
                 },
               )
-            ]
+            ],
           ),
-          
-          if (widget.barChartData.isNotEmpty && widget.showChart.value)
-            BarChart(
-              key: ValueKey(widget.barChartData), // Key handles barChartData changes
-              barData: widget.barChartData,
-              showChart: widget.showChart,
-          ),
-
-          if (widget.showInfo.value)
-            Card(
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      // Use Expanded or Flexible to allow text to wrap
-                      Expanded( // Or Flexible(flex: 1,) for more control
-                        child: Image.asset("images/HeavyMetalsDrawing.jpg",
-                        fit: BoxFit.contain, // Important for image scaling
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row (
-                    children: [
-                      Expanded( // Or Flexible(flex: 2,) for more control
-                        child: Text(
-                          "Heavy Metals - Lead, Arsenic, and Cadmium",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          softWrap: true, // Allow text to wrap to multiple lines
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 16,),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      _buildSectionTitle('Background'),
-                      _buildText('Natural Occurrence: These metals exist naturally in soil, rocks, and water at low concentrations.'),
-                      _buildText('Anthropogenic Sources: Human activities like mining, smelting, industrial production, waste disposal, and the use of pesticides and fertilizers contribute to elevated levels of these metals in the environment.'),
-                      _buildText('Persistence: Heavy metals are persistent pollutants, meaning they don\'t break down in the environment and can accumulate over time.'),
-
-                      _buildSectionTitle('Effects on Humans'),
-                      _buildSubSectionTitle('Lead'),
-                      _buildText('Sources: Old lead-based paint, contaminated water pipes, industrial emissions.'),
-                      _buildText('Effects: Neurological damage (especially in children), developmental problems, kidney damage, high blood pressure.'),
-
-                      _buildSubSectionTitle('Arsenic'),
-                      _buildText('Sources: Contaminated drinking water (especially groundwater), industrial waste, pesticides.'),
-                      _buildText('Effects: Skin lesions, various cancers (lung, bladder, skin), cardiovascular disease, developmental problems.'),
-
-                      _buildSubSectionTitle('Cadmium'),
-                      _buildText('Sources: Industrial discharge, mining, contaminated food (especially shellfish and leafy vegetables), cigarette smoke.'),
-                      _buildText('Effects: Kidney damage, bone disease, lung cancer.'),
-
-                      _buildSectionTitle('Presence in Water'),
-                      _buildSubSectionTitle('Contamination Pathways'),
-                      _buildText('Industrial discharge: Wastewater from industries like mining, smelting, and manufacturing.'),
-                      _buildText('Agricultural runoff: Use of fertilizers and pesticides containing heavy metals.'),
-                      _buildText('Natural leaching: Erosion of rocks and soil containing these metals.'),
-                      _buildText('Atmospheric deposition: Air pollution settling into water bodies.'),
-                      _buildSubSectionTitle('Health Risks'),
-                      _buildText('Contaminated water can be a significant source of exposure, leading to the health problems mentioned above.'),
-                    ],
-                  ),
-                ],
-              )
-            ),
+          if (widget.showInfo.value) _buildInfoContent(),
+          if (_showMoreInfo) _buildMoreInfoContent(),
         ],
       ),
-    ); 
+    );
+  }
+
+  Widget _buildInfoContent() {
+    final List<Map<String, dynamic>> contentData = widget.content;
+    return Column(
+      children: [
+        Image.asset(widget.imagePath, fit: BoxFit.contain),
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            widget.cardTitle,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: contentData.map((item) {
+            switch (item["type"]) {
+              case "section":
+                return _buildSectionTitle(item["text"]);
+              case "subsection":
+                return _buildSubSectionTitle(item["text"]);
+              case "text":
+                return _buildText(item["text"]);
+              default:
+                return SizedBox.shrink();
+            }
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMoreInfoContent() {
+    if (widget.cardTitle == "Metals") {
+      return HeavyMetalsInfo();
+    } else if (widget.cardTitle == "Inorganics") {
+      return InorganicsInfo();
+    } else if (widget.cardTitle == "Microplastics") {
+      return MicroplasticsInfo();
+    } else {
+      return SizedBox.shrink();
+    }
   }
 
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
-      child: Expanded(
-        child: Text(
+      child: Text(
         title,
         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         softWrap: true,
-        )
       ),
     );
   }
@@ -736,12 +729,10 @@ class _InfoCardState extends State<InfoCard> {
   Widget _buildSubSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(top: 8.0, bottom: 4.0, left: 16),
-      child: Expanded(
-        child: Text(
+      child: Text(
         title,
         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
         softWrap: true,
-        )
       ),
     );
   }
@@ -749,13 +740,388 @@ class _InfoCardState extends State<InfoCard> {
   Widget _buildText(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4.0, left: 16),
-      child: Expanded(
-        child: Text(
+      child: Text(
         text,
         softWrap: true,
-        )
       ),
     );
   }
 }
 
+class HeavyMetalsInfo extends StatefulWidget {
+  @override
+  // ignore: library_private_types_in_public_api
+  _HeavyMetalsInfoState createState() => _HeavyMetalsInfoState();
+}
+
+class _HeavyMetalsInfoState extends State<HeavyMetalsInfo> {
+  String? selectedMetal;
+
+  final Map<String, String> metalInfo = {
+    'Lead': "EPA Standard: 5.0 mg/L \nLead exposure can cause neurological damage, especially in children. Sources include old lead-based paint, industrial emissions, and contaminated water pipes.",
+    'Cadmium': "EPA Standard: 1.0 mg/L\nCadmium exposure is linked to kidney damage and lung disease. It is commonly deposited in water systems through in groundwater contamination, pesticides, industrial waste.",
+    'Mercury': "EPA Standard: 0.2 mg/L\nMercury exposure can affect the nervous system, especially in unborn babies and young children. It is commonly found in certain fish and industrial emissions.",
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Image
+          ClipOval(
+            child: Image.asset(
+              "images/HeavyMetals.jpg",
+              width: 300,
+              height: 300,
+              fit: BoxFit.cover,
+            ),
+          ),
+          SizedBox(height: 10),
+
+          // Always Visible Buttons
+          Wrap(
+            spacing: 10.0, // Space between buttons
+            children: metalInfo.keys.map((metal) {
+              return ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    selectedMetal = (selectedMetal == metal) ? null : metal;
+                  });
+                },
+                child: Text(
+                  metal,
+                  style: TextStyle(fontSize: 16), // Set font size here
+                ),
+              );
+             }).toList(),
+            ),
+          SizedBox(height: 10),
+
+          // Selected metal information in card
+          if (selectedMetal != null)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Color(0xffAFDBF5),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+    
+              Text(
+                    selectedMetal!,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    metalInfo[selectedMetal!]!,
+                    style: TextStyle(fontSize: 16, color: Colors.black54),
+                    textAlign: TextAlign.left,
+                  ),
+                ],
+              ),
+             ),
+SizedBox(height: 10),
+
+          // Background Information Section
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xff6CB4EE),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
+            ),
+            
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionTitle("Heavy Metals", Colors.black),
+                _buildText(
+                    "Heavy metals are naturally ocurring and generally toxic to humans, they can deposit into water systems through household plumbing through runoff from mining operations, petroleum refineries, cement or electronics manufacturures, and waste disposal operations.\nHumans can be detrimentally affected by increased exposure to heavy metals. Heavy metals bioaccumulate in the body over time, meaning they are not easily excreted and can cause long-term health damage. Chronic exposure can lead to organ failure, neurological disorders, and increased cancer risk. Heavy metal contamination is a serious global issue, and staying informed can help minimize health risks",
+                    Colors.black),
+                            ],
+            ),
+          ),
+          SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, Color textColor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom:6.0),
+      child: Text(
+        title,
+        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor),
+      ),
+    );
+  }
+
+  Widget _buildText(String text, Color textColor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Text(
+        text,
+        style: TextStyle(color: textColor, fontSize: 16, height: 1.5),
+      ),
+    );
+  }
+}
+
+
+
+class InorganicsInfo extends StatefulWidget {
+  @override
+  // ignore: library_private_types_in_public_api
+  _InorganicssInfoState createState() => _InorganicssInfoState();
+}
+
+class _InorganicssInfoState extends State<InorganicsInfo> {
+  String? selectedInorganic;
+
+
+  final Map<String, String> inorganicsInfo = {
+    'Nitrates': "EPA Standards: 10g/ml.\nNitrates are relatively less toxic than nitrites. They origincate from fertilizers, natural soil decomposition, and wastewater.",
+    'Nitrites': "EPA Standards: 1g/ml.\nNitrites are more reactive and can interfere with oxygen transport in the blood. Nitrite exposure may contribute to high blood pressure and vascular damage, increasing the risk of heart disease and stroke They originate from industrial waster, bacterial breakdown, and food preservatives.",
+    'Phosphates': "Phosphorus is commonly found in agricultural fertilizers, manure, and organic waste from sewage and industrial effluent. While it is essential for plant growth, excessive phosphorus in water can accelerate eutrophication which is a process where increased mineral and organic nutrients reduce dissolved oxygen levels in rivers and lakes."
+  };
+  @override
+  Widget build(BuildContext context) {
+     return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          ClipOval(
+            child: SizedBox.fromSize(
+              size: const Size.fromRadius(150),
+              child: Image.asset(
+                "images/Inorganics2.jpg",
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          SizedBox(height: 10),
+
+          // Always Visible Buttons
+          Wrap(
+            spacing: 10.0, // Space between buttons
+            children: inorganicsInfo.keys.map((inorganic) {
+              return ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    selectedInorganic = (selectedInorganic == inorganic) ? null : inorganic;
+                  });
+                },
+                child: Text(inorganic,
+                  style: TextStyle(fontSize: 16), // Set font size here
+                ),
+              );
+             }).toList(),
+            ),
+             
+  
+          SizedBox(height: 10),
+//details in boxes
+if (selectedInorganic != null)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Color(0xffAFDBF5),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    selectedInorganic!,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    inorganicsInfo[selectedInorganic!]!,
+                    style: TextStyle(fontSize: 16, color: Colors.black54),
+                    textAlign: TextAlign.left,
+                  ),
+                ],
+              ),
+            ),
+
+          SizedBox(height: 10),
+
+          // Background information (Always Visible)
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xff6CB4EE),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
+            ),
+            
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+          _buildSectionTitle("Inorganics"),
+          _buildText("Nitrite and nitrate ions are a part of the earth’s nitrogen cycle, they naturally occur in the soil and water environments. These inorganics are also released through human made products like fertilizers, waste water treatment facilities’ runoff."),
+          _buildText("Excessive nitrate consumption can interfere with the blood’s ability to carry oxygen, leading to methemoglobinemia, also known as blue baby syndrome. Bottle-fed infants under six months old are most vulnerable to this condition, which can cause serious illness or even death. Recent scientific studies suggest that long-term exposure to nitrate in drinking water, even at levels below the current regulatory standard, may be linked to thyroid disorders, adverse pregnancy outcomes, and certain cancers, particularly colorectal cancer. Further research is needed to confirm these findings."),
+          
+         ], ),
+          ),
+          SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4.0),
+      child: Text(
+        title,
+        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        softWrap: true,
+      ),
+    );
+  }
+
+  Widget _buildText(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4.0),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 16),
+        softWrap: true,
+      ),
+    );
+  }
+}
+
+ class MicroplasticsInfo extends StatelessWidget {
+   get imagePath => "images/Water Baddies.jpg";
+
+
+  @override
+  
+  Widget build(BuildContext context) {
+ return Padding(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+        ClipOval(
+  child: SizedBox.fromSize(
+    size: const Size.fromRadius(144),
+    child: Image.network(
+      imagePath,
+      fit: BoxFit.cover,
+    ),
+  ),
+),
+    SizedBox(height: 20),
+
+    // Background information (Always Visible)
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xff6CB4EE),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
+            ),
+            
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+          _buildSectionTitle("Microplastics"),
+         _buildText("Microplastics are tiny plastic particles (less than 5mm in size) that contaminate drinking water through industrial waste, plastic pollution, and the breakdown of larger plastics. These particles have been found in tap water, bottled water, and even the air we breathe, raising concerns about their long-term health effects."),
+          _buildText("Since microplastics can degrade to microscopic sizes, they  can penetrate human cells, causing inflammation, oxidative stress, and DNA damage. Microplastics can act as carriers rather than catalysts and they can contain endocrine-disrupting chemicals (EDCs), which can interfere with hormone regulation."),
+          _buildText("Microplastics absorb and transport harmful pollutants, such as pesticides, heavy metals, and industrial chemicals, into the human body. These contaminants may increase the risk of neurotoxicity, liver damage, and immune system dysfunction."),
+          _buildText("Since microplastics are invisible to the naked eye and cannot be easily filtered out by standard water treatment processes, reducing plastic waste and using advanced filtration methods may help minimize exposure."),
+         ]
+          ),
+            ),
+        ]
+        
+      ),
+    );
+  }
+
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Text(
+        title,
+        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        softWrap: true,
+      ),
+    );
+  }
+
+  Widget _buildText(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 16),
+        softWrap: true,
+      ),
+    );
+  }
+}
+
+  @override
+  Widget build(BuildContext context) {
+    //
+    throw UnimplementedError();
+  }
