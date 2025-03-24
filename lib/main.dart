@@ -564,8 +564,8 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
               selector: (context, state) => state.connectionMessage,
               builder: (context, connectionMessage, child) {
                 return Padding(padding: const EdgeInsets.all(8.0),
-                  child: Text(connectionMessage ?? "",
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30.0),
+                  child: Text(connectionMessage ?? "", textAlign: TextAlign.center,
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30.0, ),
                     )
                 );
               },
@@ -1148,11 +1148,9 @@ SizedBox(height: 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSectionTitle("Heavy Metals", Colors.black),
-                _buildText(
-                    "Heavy metals are naturally ocurring and generally toxic to humans, they can deposit into water systems through household plumbing through runoff from mining operations, petroleum refineries, cement or electronics manufacturures, and waste disposal operations.\nHumans can be detrimentally affected by increased exposure to heavy metals. Heavy metals bioaccumulate in the body over time, meaning they are not easily excreted and can cause long-term health damage. Chronic exposure can lead to organ failure, neurological disorders, and increased cancer risk. Heavy metal contamination is a serious global issue, and staying informed can help minimize health risks",
-                    Colors.black),
-                            ],
+                _buildSectionTitle("Heavy Metals"),
+                _buildText("Heavy metals are naturally ocurring and generally toxic to humans, they can deposit into water systems through household plumbing through runoff from mining operations, petroleum refineries, cement or electronics manufacturures, and waste disposal operations.\nHumans can be detrimentally affected by increased exposure to heavy metals. Heavy metals bioaccumulate in the body over time, meaning they are not easily excreted and can cause long-term health damage. Chronic exposure can lead to organ failure, neurological disorders, and increased cancer risk. Heavy metal contamination is a serious global issue, and staying informed can help minimize health risks",),
+              ],
             ),
           ),
           SizedBox(height: 30),
@@ -1160,29 +1158,7 @@ SizedBox(height: 10),
       ),
     );
   }
-
-  Widget _buildSectionTitle(String title, Color textColor) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom:6.0),
-      child: Text(
-        title,
-        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor),
-      ),
-    );
-  }
-
-  Widget _buildText(String text, Color textColor) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
-      child: Text(
-        text,
-        style: TextStyle(color: textColor, fontSize: 16, height: 1.5),
-      ),
-    );
-  }
 }
-
-
 
 class InorganicsInfo extends StatefulWidget {
   @override
@@ -1199,6 +1175,7 @@ class _InorganicssInfoState extends State<InorganicsInfo> {
     'Nitrites': "EPA Standards: 1g/ml.\nNitrites are more reactive and can interfere with oxygen transport in the blood. Nitrite exposure may contribute to high blood pressure and vascular damage, increasing the risk of heart disease and stroke They originate from industrial waster, bacterial breakdown, and food preservatives.",
     'Phosphates': "Phosphorus is commonly found in agricultural fertilizers, manure, and organic waste from sewage and industrial effluent. While it is essential for plant growth, excessive phosphorus in water can accelerate eutrophication which is a process where increased mineral and organic nutrients reduce dissolved oxygen levels in rivers and lakes."
   };
+
   @override
   Widget build(BuildContext context) {
      return Padding(
@@ -1236,8 +1213,8 @@ class _InorganicssInfoState extends State<InorganicsInfo> {
              
   
           SizedBox(height: 10),
-//details in boxes
-if (selectedInorganic != null)
+          //details in boxes
+          if (selectedInorganic != null)
             Container(
               width: double.infinity,
               padding: EdgeInsets.all(16),
@@ -1294,120 +1271,92 @@ if (selectedInorganic != null)
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-          _buildSectionTitle("Inorganics"),
-          _buildText("Nitrite and nitrate ions are a part of the earth’s nitrogen cycle, they naturally occur in the soil and water environments. These inorganics are also released through human made products like fertilizers, waste water treatment facilities’ runoff."),
-          _buildText("Excessive nitrate consumption can interfere with the blood’s ability to carry oxygen, leading to methemoglobinemia, also known as blue baby syndrome. Bottle-fed infants under six months old are most vulnerable to this condition, which can cause serious illness or even death. Recent scientific studies suggest that long-term exposure to nitrate in drinking water, even at levels below the current regulatory standard, may be linked to thyroid disorders, adverse pregnancy outcomes, and certain cancers, particularly colorectal cancer. Further research is needed to confirm these findings."),
-          
-         ], ),
+                _buildSectionTitle("Inorganics"),
+                _buildText("Nitrite and nitrate ions are a part of the earth’s nitrogen cycle, they naturally occur in the soil and water environments. These inorganics are also released through human made products like fertilizers, waste water treatment facilities’ runoff."),
+                _buildText("Excessive nitrate consumption can interfere with the blood’s ability to carry oxygen, leading to methemoglobinemia, also known as blue baby syndrome. Bottle-fed infants under six months old are most vulnerable to this condition, which can cause serious illness or even death. Recent scientific studies suggest that long-term exposure to nitrate in drinking water, even at levels below the current regulatory standard, may be linked to thyroid disorders, adverse pregnancy outcomes, and certain cancers, particularly colorectal cancer. Further research is needed to confirm these findings."),
+                
+              ], 
+            ),
           ),
           SizedBox(height: 30),
         ],
       ),
     );
   }
-
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
-      child: Text(
-        title,
-        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        softWrap: true,
-      ),
-    );
-  }
-
-  Widget _buildText(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 16),
-        softWrap: true,
-      ),
-    );
-  }
 }
 
- class MicroplasticsInfo extends StatelessWidget {
-   get imagePath => "images/Water Baddies.jpg";
-
-
+class MicroplasticsInfo extends StatelessWidget {
   @override
-  
   Widget build(BuildContext context) {
- return Padding(
+    return Padding(
       padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
         ClipOval(
-  child: SizedBox.fromSize(
-    size: const Size.fromRadius(144),
-    child: Image.network(
-      imagePath,
-      fit: BoxFit.cover,
-    ),
-  ),
-),
-    SizedBox(height: 20),
-
-    // Background information (Always Visible)
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xff6CB4EE),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 8,
-                    spreadRadius: 2,
-                  ),
-                ],
+          child: SizedBox.fromSize(
+            size: const Size.fromRadius(144),
+            child: Image.asset(
+              "images/Water Baddies.jpg",
+              fit: BoxFit.cover,
             ),
-            
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-          _buildSectionTitle("Microplastics"),
-         _buildText("Microplastics are tiny plastic particles (less than 5mm in size) that contaminate drinking water through industrial waste, plastic pollution, and the breakdown of larger plastics. These particles have been found in tap water, bottled water, and even the air we breathe, raising concerns about their long-term health effects."),
-          _buildText("Since microplastics can degrade to microscopic sizes, they  can penetrate human cells, causing inflammation, oxidative stress, and DNA damage. Microplastics can act as carriers rather than catalysts and they can contain endocrine-disrupting chemicals (EDCs), which can interfere with hormone regulation."),
-          _buildText("Microplastics absorb and transport harmful pollutants, such as pesticides, heavy metals, and industrial chemicals, into the human body. These contaminants may increase the risk of neurotoxicity, liver damage, and immune system dysfunction."),
-          _buildText("Since microplastics are invisible to the naked eye and cannot be easily filtered out by standard water treatment processes, reducing plastic waste and using advanced filtration methods may help minimize exposure."),
-         ]
           ),
-            ),
-        ]
-        
+        ),
+        SizedBox(height: 20),
+
+        // Background information (Always Visible)
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xff6CB4EE),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 8,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSectionTitle("Microplastics"),
+              _buildText("Microplastics are tiny plastic particles (less than 5mm in size) that contaminate drinking water through industrial waste, plastic pollution, and the breakdown of larger plastics. These particles have been found in tap water, bottled water, and even the air we breathe, raising concerns about their long-term health effects."),
+              _buildText("Since microplastics can degrade to microscopic sizes, they  can penetrate human cells, causing inflammation, oxidative stress, and DNA damage. Microplastics can act as carriers rather than catalysts and they can contain endocrine-disrupting chemicals (EDCs), which can interfere with hormone regulation."),
+              _buildText("Microplastics absorb and transport harmful pollutants, such as pesticides, heavy metals, and industrial chemicals, into the human body. These contaminants may increase the risk of neurotoxicity, liver damage, and immune system dysfunction."),
+              _buildText("Since microplastics are invisible to the naked eye and cannot be easily filtered out by standard water treatment processes, reducing plastic waste and using advanced filtration methods may help minimize exposure."),
+            ]
+          ),
+        ),
+      ]      
       ),
     );
   }
+}
 
+Widget _buildText(String text) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 6.0),
+    child: Text(
+      text,
+      style: TextStyle(fontSize: 16),
+      softWrap: true,
+    ),
+  );
+}
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
-      child: Text(
-        title,
-        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        softWrap: true,
-      ),
-    );
-  }
-
-  Widget _buildText(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 16),
-        softWrap: true,
-      ),
-    );
-  }
+Widget _buildSectionTitle(String title) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 6.0),
+    child: Text(
+      title,
+      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+      softWrap: true,
+    ),
+  );
 }
 
 class About extends StatefulWidget {
