@@ -14,13 +14,21 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'firebase_options.dart';
+import 'dart:math';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'screens/bluetooth/bluetoothBar.dart';
-// import 'screens/home/barChart.dart';
+import 'screens/home/barChart.dart';
+import 'screens/analytics/analyticsPage.dart';
 
 ///The main method that instantiates an instance of the entire app
-void main() {
-  return runApp(const WaterBaddiesApp());
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform,);
+  runApp(const WaterBaddiesApp());
 }
 
 ///The [WaterBaddiesApp] itself which is created once upon the [main] running
@@ -211,7 +219,7 @@ class WaterBaddiesState extends ChangeNotifier {
       notifyListeners();
 
     });
-  }
+  }  
 
   void stopFetchingCharacteristics() {
     _fetchTimer?.cancel();
@@ -251,6 +259,8 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
       case 1:
         page = History();
       case 2:
+        page = AnalyticsPage();
+      case 3:
         page = About();
       default:
         throw UnimplementedError('no widget for $currentPageIndex');
@@ -293,6 +303,10 @@ class _BaddiesHomePageState extends State<BaddiesHomePage> {
                 label: 'History',
               ),
               NavigationDestination(
+                icon: Icon(Icons.bar_chart_rounded),
+                label: 'Analytics',
+              ),
+              NavigationDestination(
                 icon: Icon(Icons.info_outline),
                 label: 'About',
               ),
@@ -325,6 +339,8 @@ class WaterBaddiesInfo extends StatefulWidget {
 
 class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
   Map<String, double> _displayedData = {};
+  List<Map<String, dynamic>> offlineData = [];
+
   WaterBaddiesState wbState = WaterBaddiesState();
   final FlutterTts flutterTts = FlutterTts();
 
@@ -334,6 +350,9 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
   late final BooleanWrapper showMetalInfo;
   late final BooleanWrapper showInorganicsInfo;
   late final BooleanWrapper showPlasticInfo;
+  late final BooleanWrapper internetConnected;
+  
+  Timer? _internetTimer;
 
   @override
   void initState() {
@@ -345,13 +364,50 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     showMetalInfo = BooleanWrapper(false);
     showInorganicsInfo = BooleanWrapper(false);
     showPlasticInfo = BooleanWrapper(false);
+    internetConnected = BooleanWrapper(false);
     _initTts();
+    _checkOfflineData();
+    startConnectivityCheck();
   }
 
   _initTts() async {
     await flutterTts.setLanguage("en-US");
     await flutterTts.setPitch(1);
     await flutterTts.setSpeechRate(0.5);
+  }
+
+  //With the use of firebase cloud storage we need to periodically check if we have internet connectivity.
+  //If there is internet connectivity and the user has data that needs to be uploaded, a button will appear
+  _checkOfflineData() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.containsKey('offline_history')) {
+      String? offlineDataString = prefs.getString('offline_history');
+      if (offlineDataString != null) {
+        if (mounted) {
+          setState(() {
+            offlineData = List<Map<String, dynamic>>.from(jsonDecode(offlineDataString));
+          });
+        } 
+      }
+    }
+  }
+
+  void startConnectivityCheck() {
+    _internetTimer?.cancel();
+    _internetTimer = Timer.periodic(Duration(seconds: 3), (timer) async {
+      // Check internet connectivity using connectivity_plus
+      var connectivityResult = await (Connectivity().checkConnectivity());
+      if (mounted){
+        setState(() {
+          if (connectivityResult[0] == ConnectivityResult.mobile ||
+              connectivityResult[0] == ConnectivityResult.wifi) {
+            internetConnected.value = true;
+          } else {
+            internetConnected.value = false;
+          }
+        });
+      }
+    });
   }
 
   Future _speak(String text) async {
@@ -422,53 +478,116 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     if (newData.containsKey('Nitrate') && newData['Nitrate']! > maxQuantities['Nitrate']!) {
       warningMessages.add("Nitrate");
     }
-    if (newData.containsKey('Phosphate') && newData['Phosphate']! > maxQuantities['Phosphate']!) {
-      warningMessages.add("High Phosphate Levels");
-    }
     return warningMessages;
   }
 
   Future<void> addHistory(Map<String, double?> newData) async {
-    final prefs = await SharedPreferences.getInstance();
-    List<Map<String, dynamic>> historyInfo = [];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<Map<String, dynamic>> historyInfo = [];
 
-    // Retrieve any previously saved data
-    if (prefs.containsKey('history')) {
-      String? savedData = prefs.getString('history');
-      if (savedData != null) {
-        historyInfo = List<Map<String, dynamic>>.from(jsonDecode(savedData));
+      // Retrieve any previously saved data
+      if (prefs.containsKey('history')) {
+        String? savedData = prefs.getString('history');
+        if (savedData != null) {
+          historyInfo = List<Map<String, dynamic>>.from(jsonDecode(savedData));
+        }
+      }
+
+      Map<String, dynamic> newEntry = {
+        "Date": DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()).toString(),
+      };
+
+      if (newData.containsKey("Lead") && newData["Lead"] != null) {
+        newEntry["Lead"] = newData["Lead"];
+      }
+      if (newData.containsKey("Cadmium") && newData["Cadmium"] != null) {
+        newEntry["Cadmium"] = newData["Cadmium"];
+      }
+      if (newData.containsKey("Mercury") && newData["Mercury"] != null) {
+        newEntry["Mercury"] = newData["Mercury"];
+      }
+      if (newData.containsKey("Phosphate") && newData["Phosphate"] != null) {
+        newEntry["Phosphate"] = newData["Phosphate"];
+      }
+      if (newData.containsKey("Nitrate") && newData["Nitrate"] != null) {
+        newEntry["Nitrate"] = newData["Nitrate"];
+      }
+      if (newData.containsKey("Microplastic") && newData["Microplastic"] != null) {
+        newEntry["Microplastic"] = newData["Microplastic"];
+      }
+
+      newEntry["Location"] = await _getLocation();
+      newEntry["Healthy"] = _getHealthy(newData.cast<String, double>());
+
+      historyInfo.add(newEntry);
+
+      await prefs.setString('history', jsonEncode(historyInfo));
+
+      // Check for internet connectivity
+      var connectivityResult = await (Connectivity().checkConnectivity());
+      if (connectivityResult[0] == ConnectivityResult.none) {
+        // No internet connection, store data locally
+        if (prefs.containsKey('offline_history')) {
+          String? offlineDataString = prefs.getString('offline_history');
+          if (offlineDataString != null) {
+            offlineData = List<Map<String, dynamic>>.from(jsonDecode(offlineDataString));
+          }
+        }
+        offlineData.add(newEntry);
+        await prefs.setString('offline_history', jsonEncode(offlineData));
+        if (mounted) {
+          _showNoInternetPopup(context);
+        }
+      } else {
+        // Internet connection available, upload data to Firebase
+        try {
+          await FirebaseFirestore.instance.collection('history').add(newEntry);
+          // Attempt to upload any previously stored offline data
+          await _uploadOfflineData();
+        } catch (e) {
+          print("Error uploading data to Firebase: $e");
+        }
+      }
+    } catch (e) {
+      print("Error saving data to history: $e");
+    }
+  }
+
+  Future<void> _uploadOfflineData() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.containsKey('offline_history')) {
+      String? offlineDataString = prefs.getString('offline_history');
+      if (offlineDataString != null) {
+        offlineData = List<Map<String, dynamic>>.from(jsonDecode(offlineDataString));
+        for (var data in offlineData) {
+          try {
+            await FirebaseFirestore.instance.collection('history').add(data);
+          } catch (e) {
+            print("Error uploading offline data: $e");
+            return; // Stop uploading if an error occurs
+          }
+        }
+        // Clear offline data after successful upload
+        await prefs.remove('offline_history');
+        setState(() {
+          offlineData = [];
+        });
+        
       }
     }
+  }
 
-    Map<String, dynamic> newEntry = {
-      "Date": DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()).toString(),
-    };
-
-    if (newData.containsKey("Lead") && newData["Lead"] != null) {
-      newEntry["Lead"] = newData["Lead"];
-    }
-    if (newData.containsKey("Cadmium") && newData["Cadmium"] != null) {
-      newEntry["Cadmium"] = newData["Cadmium"];
-    }
-    if (newData.containsKey("Mercury") && newData["Mercury"] != null) {
-      newEntry["Mercury"] = newData["Mercury"];
-    }
-    if (newData.containsKey("Phosphate") && newData["Phosphate"] != null) {
-      newEntry["Phosphate"] = newData["Phosphate"];
-    }
-    if (newData.containsKey("Nitrate") && newData["Nitrate"] != null) {
-      newEntry["Nitrate"] = newData["Nitrate"];
-    }
-    if (newData.containsKey("Microplastic") && newData["Microplastic"] != null) {
-      newEntry["Microplastic"] = newData["Microplastic"];
-    }
-
-    newEntry["Location"] = await _getLocation();
-    newEntry["Healthy"] = _getHealthy(newData.cast<String, double>()); //cast back to double for _getHealthy()
-
-    historyInfo.add(newEntry);
-
-    await prefs.setString('history', jsonEncode(historyInfo));
+  void _showNoInternetPopup(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("No Internet Connectivity"),
+          content: const Text("When internet becomes available, click the upload data button."),
+        );
+      },
+    );
   }
 
   List<String> _checkData(Map<String, double> newData) {
@@ -484,29 +603,29 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     return warningMessages;
   }
 
-  // Map<String, double> generateRandomData() {
-  //   final Random random = Random(); // Create a Random object
+  Map<String, double> generateRandomData() {
+    final Random random = Random(); // Create a Random object
 
-  //   // Generate random numbers between 120.00 and 150.00
-  //   double generateRandomValue() {
-  //     return 120.00 + random.nextDouble() * (150.00 - 120.00);
-  //   }
+    // Generate random numbers between 120.00 and 150.00
+    double generateRandomValue() {
+      return 120.00 + random.nextDouble() * (150.00 - 120.00);
+    }
 
-  //   Map<String, double> _characteristicsData = {};
+    Map<String, double> _characteristicsData = {};
 
-  //   _characteristicsData['Lead'] = generateRandomValue();
-  //   _characteristicsData['Cadmium'] = generateRandomValue();
-  //   _characteristicsData['Mercury'] = generateRandomValue();
-  //   _characteristicsData['Phosphate'] = generateRandomValue();
-  //   _characteristicsData['Nitrate'] = generateRandomValue();
-  //   _characteristicsData['Microplastic'] = generateRandomValue();
+    _characteristicsData['Lead'] = generateRandomValue();
+    _characteristicsData['Cadmium'] = generateRandomValue();
+    _characteristicsData['Mercury'] = generateRandomValue();
+    _characteristicsData['Phosphate'] = generateRandomValue();
+    _characteristicsData['Nitrate'] = generateRandomValue();
+    _characteristicsData['Microplastic'] = generateRandomValue();
 
-  //   return _characteristicsData;
-  // }
+    return _characteristicsData;
+  }
   
   void _updateDisplayedData(BuildContext context) {
-    final newData = wbState.characteristicsData;
-    //Map<String, double> newData = generateRandomData();
+    //final newData = wbState.characteristicsData;
+    Map<String, double> newData = generateRandomData();
     wbState.newDataAvailable = true;
     addHistory(newData);
     setState(() {
@@ -594,11 +713,32 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                     ),
                   ]);
                 } else {
-                  return const SizedBox.shrink();
+                  return Column(children: [ElevatedButton(
+                      onPressed: () {
+                        _updateDisplayedData(context);
+                      },
+                      child: Text("Fetch New Data"),
+                    )]);
+                  //return const SizedBox.shrink();
                 }
               }
             ),
-
+            Selector<WaterBaddiesState, bool>(
+              selector: (context, state) => internetConnected.value && offlineData.isNotEmpty,
+              builder: (context, internetConnectedAndData, child) {
+                if (internetConnectedAndData) {
+                  if (offlineData.isNotEmpty) {
+                    return TextButton(
+                      child: const Text("Upload Data"),
+                      onPressed: () async {
+                        await _uploadOfflineData(); // Upload offline data
+                      },
+                    );
+                  }
+                }
+                return const SizedBox.shrink(); // Don't display the button if conditions aren't met
+              },
+            ),
             Column(
               children: [
               InfoCard(
@@ -953,6 +1093,12 @@ class InfoCardState extends State<InfoCard> {
                 },
               )
             ],
+          ),
+          if (widget.barChartData.isNotEmpty && widget.showChart.value)
+            BarChart(
+              key: ValueKey(widget.barChartData), // Key handles barChartData changes
+              barData: widget.barChartData,
+              showChart: widget.showChart,
           ),
           if (widget.showInfo.value) _buildInfoContent(),
           if (_showMoreInfo) _buildMoreInfoContent(),
@@ -1370,8 +1516,7 @@ class _AboutState extends State<About> {
   
   @override
   Widget build(BuildContext context) {
-    // TODO: implement build
-    throw UnimplementedError();
+    return SizedBox.shrink();
   }
 }
 

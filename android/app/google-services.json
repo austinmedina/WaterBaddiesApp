@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "646505970961",
+    "project_id": "water-baddies-185e9",
+    "storage_bucket": "water-baddies-185e9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:646505970961:android:6124393d69417d8a91e0b0",
+        "android_client_info": {
+          "package_name": "com.example.water_baddies"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHH4xSslQwLFySrkSzZt7F_rBpRoGwpR0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
