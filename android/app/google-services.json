@@ -7,12 +7,17 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:646505970961:android:6124393d69417d8a91e0b0",
+        "mobilesdk_app_id": "1:646505970961:android:8c79b82eb9986e6e91e0b0",
         "android_client_info": {
           "package_name": "com.example.water_baddies"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "646505970961-q34frc1n6uugkd2ea8je3qn218v6jcl5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAHH4xSslQwLFySrkSzZt7F_rBpRoGwpR0"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "646505970961-q34frc1n6uugkd2ea8je3qn218v6jcl5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
