@@ -36,7 +36,10 @@ class DefaultFirebaseOptions {
           'you can reconfigure this by running the FlutterFire CLI again.',
         );
       case TargetPlatform.windows:
-        return windows;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -55,15 +58,5 @@ class DefaultFirebaseOptions {
     messagingSenderId: '646505970961',
     projectId: 'water-baddies-185e9',
     storageBucket: 'water-baddies-185e9.firebasestorage.app',
-  );
-
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyB83BFtHCYDyzHtSQNcZFtHMaLAJCTYl_Q',
-    appId: '1:646505970961:web:9c822ccaa77613f091e0b0',
-    messagingSenderId: '646505970961',
-    projectId: 'water-baddies-185e9',
-    authDomain: 'water-baddies-185e9.firebaseapp.com',
-    storageBucket: 'water-baddies-185e9.firebasestorage.app',
-    measurementId: 'G-48NNLG317C',
   );
 }

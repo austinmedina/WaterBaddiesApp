@@ -33,6 +33,8 @@ dependencies:
   flutter_map: ^8.1.1
   latlong2: ^0.9.1
   connectivity_plus: ^6.1.3
+  firebase_auth: ^5.5.1
+  google_sign_in: ^6.3.0
 
 dev_dependencies:
   flutter_test:

@@ -1,35 +1,106 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:math';
+import '../../utils/utils.dart';
 
-class AnalyticsPage extends StatelessWidget {
+class AnalyticsPage extends StatefulWidget {
+  @override
+  _AnalyticsPageState createState() => _AnalyticsPageState();
+}
+
+class _AnalyticsPageState extends State<AnalyticsPage> {
+  User? _user; // Store the user state
+
+  @override
+  void initState() {
+    super.initState();
+    _signInAndCheck(); // Call sign-in when the page loads
+  }
+
+  Future<void> _signInAndCheck() async {
+    try {
+      final userCredential = await signInWithGoogle();
+      setState(() {
+        _user = userCredential.user; // Update user state
+      });
+    } catch (e) {
+      print("Error signing in: $e");
+      // Handle sign-in errors, such as displaying a snackbar
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Water Quality Analytics')),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('history').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
+    if (_user != null && _user!.email == 'austinmedina@comcast.net') {
+      return Scaffold(
+        appBar: AppBar(title: Center(child: Text('Water Quality Analytics'))),
+        body: _user != null // Check if user is signed in
+            ? StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('history').snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  }
 
-          if (snapshot.data == null || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text('No data available.'));
-          }
+                  if (snapshot.data == null || snapshot.data!.docs.isEmpty) {
+                    return Center(child: Text('No data available.'));
+                  }
 
-          List<Map<String, dynamic>> data = snapshot.data!.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
-          return AnalyticsView(data: data);
-        },
-      ),
-    );
+                  List<Map<String, dynamic>> data = snapshot.data!.docs
+                      .map((doc) => doc.data() as Map<String, dynamic>)
+                      .toList();
+                  return AnalyticsView(data: data);
+                },
+              )
+            : Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Text("Not authenticated, you must sign into a Google account."),
+                    ElevatedButton(
+                      onPressed: () async {
+                        await _signInAndCheck();
+                      },
+                      child: Text("Sign in with Google"),
+                    ),
+                  ],
+                ),
+              ),
+      );
+    } else {
+      // User is not authorized, show access denied message
+      return Scaffold(
+        appBar: AppBar(title: Center(child: Text('Water Quality Analytics'))),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center, // Center vertically
+            children: <Widget>[
+              Text(
+                "Access Denied. Only authorized users to access the cloud.",
+                textAlign: TextAlign.center, // Center horizontally
+                style: TextStyle(
+                  fontSize: 20.0, // Increase font size
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  await _signInAndCheck();
+                },
+                child: Text("Sign in with Google"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 }
 

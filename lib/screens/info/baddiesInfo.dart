@@ -15,6 +15,8 @@ import 'package:provider/provider.dart';
 import 'dart:async';
 import 'infoCard.dart';
 
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 ///[WaterBaddiesInfo] is one of the pages in the body of the [BaddiesHomePage]
 ///It creates the [_WaterBaddiesInfoState] which displays data on our baddies, and charts of the current data from the raspberry pi
@@ -230,10 +232,25 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
       } else {
         // Internet connection available, upload data to Firebase
         try {
-          await FirebaseFirestore.instance.collection('history').add(newEntry);
-          // Attempt to upload any previously stored offline data
-          await _uploadOfflineData();
+          UserCredential userCredential = await signInWithGoogle(); // Authenticate
+          if (userCredential.user != null) {
+            await FirebaseFirestore.instance.collection('history').add(newEntry);
+            await _uploadOfflineData(); // Upload any previously stored offline data
+          } else {
+            throw Error();
+          }
         } catch (e) {
+          if (prefs.containsKey('offline_history')) {
+            String? offlineDataString = prefs.getString('offline_history');
+            if (offlineDataString != null) {
+              offlineData = List<Map<String, dynamic>>.from(jsonDecode(offlineDataString));
+            }
+          }
+          offlineData.add(newEntry);
+          await prefs.setString('offline_history', jsonEncode(offlineData));
+          if (mounted) {
+            _showCloudError(context);
+          }
           print("Error uploading data to Firebase: $e");
         }
       }
@@ -247,21 +264,26 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     if (prefs.containsKey('offline_history')) {
       String? offlineDataString = prefs.getString('offline_history');
       if (offlineDataString != null) {
-        offlineData = List<Map<String, dynamic>>.from(jsonDecode(offlineDataString));
-        for (var data in offlineData) {
-          try {
-            await FirebaseFirestore.instance.collection('history').add(data);
-          } catch (e) {
-            print("Error uploading offline data: $e");
-            return; // Stop uploading if an error occurs
+        try {
+          UserCredential userCredential = await signInWithGoogle(); // Authenticate
+          if (userCredential.user != null) {
+            for (var data in offlineData) {
+              await FirebaseFirestore.instance.collection('history').add(data);
+            }
+            await prefs.remove('offline_history');
+            setState(() {
+              offlineData = [];
+            });
+          } else {
+            print("Google Sign-in failed.");
+            if (mounted) {
+              _showCloudError(context);
+            }
+            return;
           }
-        }
-        // Clear offline data after successful upload
-        await prefs.remove('offline_history');
-        setState(() {
-          offlineData = [];
-        });
-        
+        } catch (e) {
+          print("Error uploading offline data: $e");
+        }       
       }
     }
   }
@@ -273,6 +295,18 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
         return AlertDialog(
           title: const Text("No Internet Connectivity"),
           content: const Text("When internet becomes available, click the upload data button."),
+        );
+      },
+    );
+  }
+
+  void _showCloudError(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Error Pushing to Firebase Database"),
+          content: const Text("When internet becomes available, click the upload data button to try again."),
         );
       },
     );
