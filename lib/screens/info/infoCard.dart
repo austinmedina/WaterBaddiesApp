@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/utils.dart';
-import '../../screens/home/barChart.dart';
+import 'barChart.dart';
 import 'infoUtils.dart';
 import 'heavyMetalsInfo.dart';
 import 'inorganicsInfo.dart';
