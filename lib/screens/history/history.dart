@@ -116,8 +116,7 @@ class _HistoryState extends State<History> {
 
   Future<List<Map<String, dynamic>>> fetchHistory() async {
     final prefs = await SharedPreferences.getInstance();
-    String? savedData = prefs.getString('history');
-    
+    final savedData = prefs.getString('history');
     if (savedData != null) {
       return List<Map<String, dynamic>>.from(jsonDecode(savedData));
     }
@@ -125,19 +124,17 @@ class _HistoryState extends State<History> {
   }
 
   Widget _buildKeyValueRow(String key, Map<String, dynamic> data) {
-    dynamic value = data[key]; // Try to get the value
+    final value = data[key];
     String displayValue = "No Value";
-
     if (value != null) {
-      if(key == "Location"){
+      if (key == "Location") {
         displayValue = "${value['Latitude']}, ${value['Longitude']}";
       } else {
         displayValue = value.toString();
       }
     }
-
     return Padding(
-      padding: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -145,7 +142,7 @@ class _HistoryState extends State<History> {
             flex: 1,
             child: Text(
               '$key:',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           Expanded(
@@ -159,58 +156,63 @@ class _HistoryState extends State<History> {
 
   @override
   Widget build(BuildContext context) {
-    return Center (
-      child: FutureBuilder(
-      future: history, 
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: fetchHistory(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return CircularProgressIndicator(); // Show loading indicator
+          return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
-          return Text('Error: ${snapshot.error}'); // Handle errors
+          return Center(child: Text('Error: ${snapshot.error}'));
         } else if (snapshot.hasData) {
           final data = snapshot.data;
-          if (data == null) {
-            return Text('Error: History is null');
-          } else if (data.isEmpty) {
-            return Text('No history found.');
+          if (data == null || data.isEmpty) {
+            return const Center(child: Text('No history found.'));
           } else {
             return ListView.builder(
+              padding: const EdgeInsets.all(16.0),
               itemCount: data.length,
               itemBuilder: (context, index) {
+                final item = data[index];
                 return Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 8.0),
                   child: ExpansionTile(
-                    title: (data[index].containsKey('Date') 
-                    ? Text(data[index]['Date']) 
-                    : const Text("No Date")),
-                    subtitle: Text("High levels of: ${data[index]['Healthy'].join(', ')}"),
+                    tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    title: item.containsKey('Date')
+                        ? Text(item['Date'])
+                        : const Text("No Date"),
+                    subtitle: Text(
+                      "High levels of: ${item['Healthy'] is List ? (item['Healthy'] as List).join(', ') : item['Healthy']}",
+                      style: TextStyle(color: Theme.of(context).colorScheme.secondary),
+                    ),
                     children: [
-                      _buildKeyValueRow('Lead', data[index]),
-                      _buildKeyValueRow('Cadmium', data[index]),
-                      _buildKeyValueRow('Mercury', data[index]),
-                      _buildKeyValueRow('Nitrate', data[index]),
-                      _buildKeyValueRow('Phosphate', data[index]),
-                      _buildKeyValueRow('Microplastic', data[index]),
-                      _buildKeyValueRow('Location', data[index]),
+                      _buildKeyValueRow('Lead', item),
+                      _buildKeyValueRow('Cadmium', item),
+                      _buildKeyValueRow('Mercury', item),
+                      _buildKeyValueRow('Nitrate', item),
+                      _buildKeyValueRow('Phosphate', item),
+                      _buildKeyValueRow('Microplastic', item),
+                      _buildKeyValueRow('Location', item),
                       const SizedBox(height: 10),
                       ElevatedButton(
                         onPressed: () async {
-                          await createPDF(data[index]);
-                          // ScaffoldMessenger.of(context).showSnackBar(
-                          //   SnackBar(content: Text('PDF generated successfully'))
-                          // );
+                          await createPDF(item);
                         },
-                        child: Text('Generate PDF'),
+                        child: const Text('Generate PDF'),
                       ),
                     ],
-                    ),
+                  ),
                 );
               },
             );
           }
         }
-        return Container();
-      }
-      )
+        return const SizedBox.shrink();
+      },
     );
   }
 }

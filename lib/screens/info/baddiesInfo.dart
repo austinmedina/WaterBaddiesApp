@@ -281,6 +281,13 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
             }
             return;
           }
+        } on FirebaseException catch (e) {
+          if (e.code == 'permission-denied') {
+            print('Error uploading offline data: ${e.message}');
+            _showCloudError(context);
+          } else {
+            print('FirebaseException: ${e.message}');
+          }
         } catch (e) {
           print("Error uploading offline data: $e");
         }       
@@ -293,8 +300,24 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text("No Internet Connectivity"),
-          content: const Text("When internet becomes available, click the upload data button."),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+          title: Text(
+            "No Internet Connectivity",
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          content: Text(
+            "When internet becomes available, click the upload data button.",
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                "OK",
+                style: TextStyle(color: Theme.of(context).primaryColor),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -305,12 +328,29 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text("Error Pushing to Firebase Database"),
-          content: const Text("When internet becomes available, click the upload data button to try again."),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+          title: Text(
+            "Error Pushing to Firebase Database",
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          content: Text(
+            "You do not have permissions to push to the cloud",
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                "OK",
+                style: TextStyle(color: Theme.of(context).primaryColor),
+              ),
+            ),
+          ],
         );
       },
     );
   }
+
 
   List<String> _checkData(Map<String, double> newData) {
     List<String> warningMessages = [];
@@ -347,7 +387,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
   
   void _updateDisplayedData(BuildContext context) {
     //final newData = wbState.characteristicsData;
-    Map<String, double> newData = generateRandomData();
+    final newData = generateRandomData();
     wbState.newDataAvailable = true;
     addHistory(newData);
     setState(() {
@@ -394,153 +434,176 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTextStyle(
-      style: Theme.of(context).textTheme.displayMedium!,
-      textAlign: TextAlign.left,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Selector<WaterBaddiesState, String?>(
-              selector: (context, state) => state.connectionMessage,
-              builder: (context, connectionMessage, child) {
-                return Padding(padding: const EdgeInsets.all(8.0),
-                  child: Text(connectionMessage ?? "", textAlign: TextAlign.center,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30.0, ),
-                    )
-                );
-              },
-            ),
-
-            Selector<WaterBaddiesState, bool>(
-              selector: (context, state) => state.newDataAvailable && state.characteristicsData.isNotEmpty,
-              builder: (context, hasNewData, child) {
-                if (hasNewData) {
-                  return Column(children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(
-                        "New data is available!",
-                        style: TextStyle(
-                          fontSize: 20, 
-                          color: const Color.fromARGB(255, 23, 28, 127),
+    return Scaffold(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      children: [
+                        Selector<WaterBaddiesState, String?>(
+                          selector: (context, state) => state.connectionMessage,
+                          builder: (context, connectionMessage, child) {
+                            return Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(
+                                connectionMessage ?? "",
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 30.0,
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        _updateDisplayedData(context);
-                      },
-                      child: Text("Fetch New Data"),
-                    ),
-                  ]);
-                } else {
-                  return Column(children: [ElevatedButton(
-                      onPressed: () {
-                        _updateDisplayedData(context);
-                      },
-                      child: Text("Fetch New Data"),
-                    )]);
-                  //return const SizedBox.shrink();
-                }
-              }
-            ),
-            Selector<WaterBaddiesState, bool>(
-              selector: (context, state) => internetConnected.value && offlineData.isNotEmpty,
-              builder: (context, internetConnectedAndData, child) {
-                if (internetConnectedAndData) {
-                  if (offlineData.isNotEmpty) {
-                    return TextButton(
-                      child: const Text("Upload Data"),
-                      onPressed: () async {
-                        await _uploadOfflineData(); // Upload offline data
-                      },
-                    );
-                  }
-                }
-                return const SizedBox.shrink(); // Don't display the button if conditions aren't met
-              },
-            ),
-            Column(
-              children: [
-              InfoCard(
-                key: ValueKey("Metals${_displayedData["Lead"]}${_displayedData["Cadmium"]}${_displayedData["Mercury"]}"),
-                showChart: showMetalChart,
-                showInfo: showMetalInfo,
-                cardTitle: "Metals",
-                barChartData: _displayedData.isEmpty
-                    ? []
-                    : [
-                      if (_displayedData.containsKey("Cadmium"))
-                        {
-                          'name': 'Cadmium',
-                          'maxQuantity': maxQuantities['Cadmium'],
-                          'quantity': _displayedData["Cadmium"],
-                        },
-                      if (_displayedData.containsKey("Mercury"))
-                        {
-                          'name': 'Mercury',
-                          'maxQuantity': maxQuantities['Mercury'],
-                          'quantity': _displayedData["Mercury"],
-                        },
-                      if (_displayedData.containsKey("Lead"))
-                        {
-                          'name': 'Lead',
-                          'maxQuantity': maxQuantities['Lead'],
-                          'quantity': _displayedData["Lead"],
-                        },
-                    ].where((element) => element.isNotEmpty).toList(), content: [], imagePath: '',
-              ),
-              InfoCard(
-                key: ValueKey("Inorganics${_displayedData["Phosphate"]}${_displayedData["Nitrate"]}"), 
-                showChart: showInorganicsChart,
-                showInfo: showInorganicsInfo,
-                cardTitle: "Inorganics",
-                barChartData: _displayedData.isEmpty
-                    ? []
-                    : [
-                        if (_displayedData.containsKey("Phosphate"))
-                          {
-                            'name': 'Phosphate',
-                            'maxQuantity': maxQuantities['Phosphate'],
-                            'quantity': _displayedData["Phosphate"],
+                        Selector<WaterBaddiesState, bool>(
+                          selector: (context, state) =>
+                              state.newDataAvailable && state.characteristicsData.isNotEmpty,
+                          builder: (context, hasNewData, child) {
+                            return Column(
+                              children: [
+                                if (hasNewData)
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Text(
+                                      "New data is available!",
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        color: Theme.of(context).colorScheme.secondary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ElevatedButton(
+                                  onPressed: () => _updateDisplayedData(context),
+                                  child: const Text("Fetch New Data"),
+                                ),
+                              ],
+                            );
                           },
-                        if (_displayedData.containsKey("Nitrate"))
-                          {
-                            'name': 'Nitrates',
-                            'maxQuantity': maxQuantities['Nitrate'],
-                            'quantity': _displayedData["Nitrate"],
-                          },
-                          if (_displayedData.containsKey("Phosphate"))
-                          {
-                            'name': 'Phosphates',
-                            'maxQuantity': maxQuantities['Phosphate'],
-                            'quantity': _displayedData["Phosphate"],
-                          },
-                      ].where((element) => element.isNotEmpty).toList(), content: [], imagePath: '',
-              ),
-              InfoCard(
-                key: ValueKey("Microplastics${_displayedData["Microplastic"]}"),
-                showChart: showPlasticChart,
-                showInfo: showPlasticInfo,
-                cardTitle: "Microplastics",
-                barChartData: _displayedData.isEmpty
-                    ? []
-                    : _displayedData.containsKey("Microplastic")
-                        ? [
-                            {
-                              'name': 'Microplastics',
-                              'maxQuantity': maxQuantities['Microplastic'],
-                              'quantity': _displayedData["Microplastic"]
+                        ),
+                        Selector<WaterBaddiesState, bool>(
+                          selector: (context, state) =>
+                              internetConnected.value && offlineData.isNotEmpty,
+                          builder: (context, internetConnectedAndData, child) {
+                            if (internetConnectedAndData) {
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: TextButton(
+                                  onPressed: () async {
+                                    await _uploadOfflineData();
+                                  },
+                                  child: const Text("Upload Data"),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Theme.of(context).primaryColor,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  ),
+                                ),
+                              );
                             }
-                          ]
-                        : [], content: [], imagePath: '', // Return empty list if key is missing
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                        Column(
+                          children: [
+                            InfoCard(
+                              key: ValueKey("Metals${_displayedData["Lead"]}${_displayedData["Cadmium"]}${_displayedData["Mercury"]}"),
+                              showChart: showMetalChart,
+                              showInfo: showMetalInfo,
+                              cardTitle: "Metals",
+                              barChartData: _displayedData.isEmpty
+                                  ? []
+                                  : [
+                                      if (_displayedData.containsKey("Cadmium"))
+                                        {
+                                          'name': 'Cadmium',
+                                          'maxQuantity': maxQuantities['Cadmium'],
+                                          'quantity': _displayedData["Cadmium"],
+                                        },
+                                      if (_displayedData.containsKey("Mercury"))
+                                        {
+                                          'name': 'Mercury',
+                                          'maxQuantity': maxQuantities['Mercury'],
+                                          'quantity': _displayedData["Mercury"],
+                                        },
+                                      if (_displayedData.containsKey("Lead"))
+                                        {
+                                          'name': 'Lead',
+                                          'maxQuantity': maxQuantities['Lead'],
+                                          'quantity': _displayedData["Lead"],
+                                        },
+                                    ].where((element) => element.isNotEmpty).toList(),
+                              content: [],
+                              imagePath: '',
+                            ),
+                            InfoCard(
+                              key: ValueKey("Inorganics${_displayedData["Phosphate"]}${_displayedData["Nitrate"]}"),
+                              showChart: showInorganicsChart,
+                              showInfo: showInorganicsInfo,
+                              cardTitle: "Inorganics",
+                              barChartData: _displayedData.isEmpty
+                                  ? []
+                                  : [
+                                      if (_displayedData.containsKey("Phosphate"))
+                                        {
+                                          'name': 'Phosphate',
+                                          'maxQuantity': maxQuantities['Phosphate'],
+                                          'quantity': _displayedData["Phosphate"],
+                                        },
+                                      if (_displayedData.containsKey("Nitrate"))
+                                        {
+                                          'name': 'Nitrates',
+                                          'maxQuantity': maxQuantities['Nitrate'],
+                                          'quantity': _displayedData["Nitrate"],
+                                        },
+                                      if (_displayedData.containsKey("Phosphate"))
+                                        {
+                                          'name': 'Phosphates',
+                                          'maxQuantity': maxQuantities['Phosphate'],
+                                          'quantity': _displayedData["Phosphate"],
+                                        },
+                                    ].where((element) => element.isNotEmpty).toList(),
+                              content: [],
+                              imagePath: '',
+                            ),
+                            InfoCard(
+                              key: ValueKey("Microplastics${_displayedData["Microplastic"]}"),
+                              showChart: showPlasticChart,
+                              showInfo: showPlasticInfo,
+                              cardTitle: "Microplastics",
+                              barChartData: _displayedData.isEmpty
+                                  ? []
+                                  : _displayedData.containsKey("Microplastic")
+                                      ? [
+                                          {
+                                            'name': 'Microplastics',
+                                            'maxQuantity': maxQuantities['Microplastic'],
+                                            'quantity': _displayedData["Microplastic"]
+                                          }
+                                        ]
+                                      : [],
+                              content: [],
+                              imagePath: '',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 0),
+                  ],
+                ),
               ),
-            ]
-          )
-          ]
-        )
-      )
+            ),
+          );
+        },
+      ),
     );
   }
 }

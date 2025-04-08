@@ -29,13 +29,48 @@ class WaterBaddiesApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => WaterBaddiesState(),
+    return ChangeNotifierProvider<WaterBaddiesState>(
+      create: (_) => WaterBaddiesState(),
       child: MaterialApp(
         title: 'Water Baddies App',
+        debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff1E90FF)), 
+          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff1E90FF)),
+          scaffoldBackgroundColor: const Color(0xff1E90FF),
+          appBarTheme: AppBarTheme(
+            backgroundColor: const Color(0xff1E90FF),
+            foregroundColor: Colors.white,
+            centerTitle: true,
+            elevation: 2,
+            titleTextStyle: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              textStyle: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              textStyle: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          outlinedButtonTheme: OutlinedButtonThemeData(
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+          ),
         ),
         home: BaddiesHomePage(),
       ),
@@ -50,6 +85,15 @@ class WaterBaddiesApp extends StatelessWidget {
 ///The [subscriptions] map is created which stores listeners who listen for updates in the values on each of the characteristics
 class WaterBaddiesState extends ChangeNotifier {
   BluetoothDevice? _device;
+  String changeKey = "";
+  String _connectionMessage = "Please Connect a Bluetooth Device";
+  bool newDataAvailable = false;
+  StreamSubscription<BluetoothConnectionState>? _connectionSub;
+
+  Map<String, double> _characteristicsData = {};
+  Map<BluetoothCharacteristic, StreamSubscription<List<int>>> subscriptions = {};
+  List<BluetoothCharacteristic> characteristics = [];
+  List<dynamic> readingSubs = [];
 
   BluetoothDevice? get device => _device;
 
@@ -58,12 +102,10 @@ class WaterBaddiesState extends ChangeNotifier {
     if (newDevice != null) { // Only fetch characteristics if newDevice is not null
       createConnectionSubscription();
       fetchCharacteristics(_device!);
-      startFetchingCharacteristics();
+      startFetchingData();
     }
     notifyListeners();  // Notify listeners when the device is updated
   }
-
-  StreamSubscription<BluetoothConnectionState>? _connectionSub;
 
   StreamSubscription<BluetoothConnectionState>? get connectionSub => _connectionSub;
 
@@ -71,13 +113,17 @@ class WaterBaddiesState extends ChangeNotifier {
     _connectionSub = newSub;
   }
 
-  String _connectionMessage = "Please Connect a Bluetooth Device";
-
   String get connectionMessage => _connectionMessage;
 
   set connectionMessage(String? newMessage) {
     // Check if the newMessage is null, if so, assign a default value.
     _connectionMessage = newMessage ?? "Please Connect a Bluetooth Device";
+  }
+
+  Map<String, double> get characteristicsData => Map.from(_characteristicsData);
+
+  set characteristicsData(Map<String, double> cd) {
+    _characteristicsData = cd;
   }
 
   void createConnectionSubscription() {
@@ -96,21 +142,6 @@ class WaterBaddiesState extends ChangeNotifier {
       connectionMessage = "Please Connect a Bluetooth Device";
     }
   }
-
-  Map<String, double> _characteristicsData = {};
-
-  Map<String, double> get characteristicsData => Map.from(_characteristicsData);
-
-  set characteristicsData(Map<String, double> cd) {
-    _characteristicsData = cd;
-  }
-
-  String changeKey = "";
-  bool newDataAvailable = false;
-
-  Map<BluetoothCharacteristic, StreamSubscription<List<int>>> subscriptions = {};
-  List<BluetoothCharacteristic> characteristics = [];
-  List<dynamic> readingSubs = [];
 
   void clearSubscriptions() {
     subscriptions.forEach((characteristic, subscription) {
@@ -198,11 +229,11 @@ class WaterBaddiesState extends ChangeNotifier {
 
   Timer? _fetchTimer;
 
-  void startFetchingCharacteristics() {
+  void startFetchingData() {
     _fetchTimer?.cancel(); // Cancel any existing timer
     _fetchTimer = Timer.periodic(Duration(seconds: 3), (timer) {
       didKeyChange();
-      if (newDataAvailable) {
+      if (newDataAvailable && (device != null)) {
         fetchNewData();
       }
       notifyListeners();

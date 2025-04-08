@@ -16,6 +16,7 @@ class _BluetoothBarState extends State<BluetoothBar> {
   List<ScanResult> _scanResults = [];
   bool _isScanning = false;
   bool _isConnected = false;
+  bool _isConnecting = false;
 
   BluetoothDevice? _device;
   Map<String, String> previouslyConnectedDevices = {}; // Initialize as empty
@@ -204,6 +205,9 @@ class _BluetoothBarState extends State<BluetoothBar> {
 
   void connectDevice(BluetoothDevice device) async {
     try {
+      setState(() {
+        _isConnecting = true;
+      });
       await device.connect();
       if (mounted) {
         Provider.of<WaterBaddiesState>(context, listen: false).device = device;
@@ -234,9 +238,13 @@ class _BluetoothBarState extends State<BluetoothBar> {
       });
       setState(() {
         _device = device;
+        _isConnecting = false;
       });
     } catch (e) {
       print("Error connecting: $e");
+      setState(() {
+        _isConnecting = false;
+      });
     }
   }
 
@@ -272,7 +280,7 @@ class _BluetoothBarState extends State<BluetoothBar> {
         controller: scrollCont,
         children: <Widget>[
           DrawerHeader(
-            decoration: BoxDecoration(color: Colors.blue),
+            decoration: BoxDecoration(color: Color(0xff1E90FF),),
             child: Column(
               children: [
                 Text(
@@ -327,13 +335,21 @@ class _BluetoothBarState extends State<BluetoothBar> {
                     String remoteId = previouslyConnectedDevices.keys.elementAt(index);
                     String name = previouslyConnectedDevices[remoteId]!;
 
+                    
                     return Card(
                       elevation: 2,
                       child: ListTile(
                         title: Text(name),
                         subtitle: Text(remoteId),
+                        trailing: _isConnecting
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(strokeWidth: 2.0),
+                              )
+                            : null,
                         onTap: () {
-                          connectDevice(BluetoothDevice.fromId(remoteId));
+                          _isConnecting ? null : connectDevice(BluetoothDevice.fromId(remoteId));
                         },
                       ),
                     );
