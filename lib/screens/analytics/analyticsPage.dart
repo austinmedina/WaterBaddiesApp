@@ -39,9 +39,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   Widget build(BuildContext context) {
     if (_user != null && _user!.email == 'austinmedina@comcast.net') {
       return Scaffold(
-        appBar: AppBar(
-          title: const Center(child: Text('Water Quality Analytics')),
-        ),
         body: _user != null
             ? StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance.collection('history').snapshots(),
@@ -78,9 +75,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     } else {
       // User is not authorized
       return Scaffold(
-        appBar: AppBar(
-          title: const Center(child: Text('Water Quality Analytics')),
-        ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -109,51 +103,131 @@ class AnalyticsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final averages = calculateAverages(data);
-    final unhealthyPercentage = calculateUnhealthyPercentage(data);
-    final markers = createMapMarkers(data);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Average Contaminant Levels',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          SizedBox(height: 200, child: BarChartWidget(averages: averages)),
-          const SizedBox(height: 40),
-          Text(
-            'Percentage of Healthy: ${unhealthyPercentage.toStringAsFixed(2)}%',
-            style: TextStyle(
-              fontSize: 16,
-              color: unhealthyPercentage < 30
-                  ? Colors.red
-                  : unhealthyPercentage < 70
-                      ? Colors.yellow
-                      : Colors.green,
-            ),
-          ),
-          const SizedBox(height: 20),
-          const Text('Water Quality Map',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 300,
-            child: FlutterMap(
-              options: MapOptions(
-                initialCenter: LatLng(32.2422, -110.9617),
-                initialZoom: 10.0,
+    Map<String, double> averages = calculateAverages(data);
+    double unhealthyPercentage = calculateUnhealthyPercentage(data);
+    List<Marker> markers = createMapMarkers(data);
+
+    return Scaffold(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Section: Average Contaminant Levels
+            Card(
+              margin: const EdgeInsets.only(bottom: 24.0),
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              children: [
-                TileLayer(
-                  urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                  subdomains: const ['a', 'b', 'c'],
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Average Contaminant Levels',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 200,
+                      child: BarChartWidget(averages: averages),
+                    ),
+                  ],
                 ),
-                MarkerLayer(markers: markers),
-              ],
+              ),
             ),
-          ),
-        ],
+            // Section: Drinkable Water Percentage
+            Card(
+              margin: const EdgeInsets.only(bottom: 24.0),
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                leading: Icon(
+                  Icons.water,
+                  size: 40,
+                  color: unhealthyPercentage < 30
+                      ? Colors.redAccent
+                      : unhealthyPercentage < 70
+                          ? Colors.orange
+                          : Colors.green,
+                ),
+                title: Text(
+                  'Drinkable Water Percentage',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  '${unhealthyPercentage.toStringAsFixed(2)}%',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyLarge
+                      ?.copyWith(
+                        color: unhealthyPercentage < 30
+                            ? Colors.redAccent
+                            : unhealthyPercentage < 70
+                                ? Colors.orange
+                                : Colors.green,
+                      ),
+                ),
+              ),
+            ),
+            // Section: Water Quality Map
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: Text(
+                      'Water Quality Map',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const Divider(),
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(12),
+                      bottomRight: Radius.circular(12),
+                    ),
+                    child: SizedBox(
+                      height: 300,
+                      child: FlutterMap(
+                        options: MapOptions(
+                          initialCenter: LatLng(32.2422, -110.9617),
+                          initialZoom: 10.0,
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                            subdomains: const ['a', 'b', 'c'],
+                          ),
+                          MarkerLayer(markers: markers),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -211,19 +285,24 @@ class AnalyticsView extends StatelessWidget {
 
 class BarChartWidget extends StatelessWidget {
   final Map<String, double> averages;
-  const BarChartWidget({Key? key, required this.averages}) : super(key: key);
+
+  BarChartWidget({required this.averages});
 
   @override
   Widget build(BuildContext context) {
-    final barGroups = averages.entries.map((entry) {
+    List<BarChartGroupData> barGroups = averages.entries.map((entry) {
       return BarChartGroupData(
         x: averages.keys.toList().indexOf(entry.key),
         barRods: [
-          BarChartRodData(toY: entry.value, color: Colors.blue),
+          BarChartRodData(
+            toY: entry.value,
+            color: Colors.blue,
+          ),
         ],
-        showingTooltipIndicators: const [0],
+        showingTooltipIndicators: [1],
       );
     }).toList();
+
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
@@ -236,9 +315,9 @@ class BarChartWidget extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 50,
-              getTitlesWidget: (value, meta) {
-                return Padding(
-                  padding: const EdgeInsets.only(top: 25.0, right: 25.0),
+              getTitlesWidget: (double value, TitleMeta meta) {
+                return Padding( // Added padding
+                  padding: const EdgeInsets.only(top: 25.0, right: 25.0), // Added top padding
                   child: Transform.rotate(
                     angle: -pi / 4,
                     child: Text(averages.keys.toList()[value.toInt()]),
@@ -248,20 +327,23 @@ class BarChartWidget extends StatelessWidget {
             ),
           ),
           leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-            showTitles: true,
-            reservedSize: 50,
-            getTitlesWidget: (value, meta) {
-              if (value == averages.values.reduce(max) * 1.2) {
-                return const Text('');
-              }
-              return Text(value.toStringAsFixed(1), softWrap: false);
-            },
-          )),
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 50,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                if (value == averages.values.reduce(max) * 1.2) { // Hide max value label
+                  return const Text('');
+                }
+                return Text(
+                  value.toStringAsFixed(1),
+                  softWrap: false, // Prevent wrapping
+                );
+              },
+            )
+          )
         ),
         barGroups: barGroups,
       ),
     );
   }
 }
-

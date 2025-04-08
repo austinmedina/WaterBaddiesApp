@@ -36,39 +36,32 @@ class WaterBaddiesApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff1E90FF)),
-          scaffoldBackgroundColor: const Color(0xff1E90FF),
-          appBarTheme: AppBarTheme(
-            backgroundColor: const Color(0xff1E90FF),
+          scaffoldBackgroundColor: const Color.fromARGB(255, 146, 195, 243),
+          colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 146, 195, 243)),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color.fromARGB(255, 4, 63, 122),
             foregroundColor: Colors.white,
             centerTitle: true,
             elevation: 2,
-            titleTextStyle: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+            titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               textStyle: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           textButtonTheme: TextButtonThemeData(
             style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               textStyle: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
           outlinedButtonTheme: OutlinedButtonThemeData(
             style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),
         ),
@@ -270,80 +263,46 @@ class BaddiesHomePage extends StatefulWidget {
 class _BaddiesHomePageState extends State<BaddiesHomePage> {
   int currentPageIndex = 0;
 
+  final List<String> pageTitles = [
+    'Water Baddies: Breakdown',
+    'Water Baddies: History',
+    'Water Baddies: Cloud Analytics',
+    'Water Baddies: About',
+  ];
+
+  final List<Widget> pages = [
+    WaterBaddiesInfo(),
+    History(),
+    AnalyticsPage(),
+    About(),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    Widget page;
-    switch (currentPageIndex) {
-      case 0:
-        page = WaterBaddiesInfo();
-      case 1:
-        page = History();
-      case 2:
-        page = AnalyticsPage();
-      case 3:
-        page = About();
-      default:
-        throw UnimplementedError('no widget for $currentPageIndex');
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Scaffold(
-          drawer: BluetoothBar(),
-          appBar: AppBar(
-            title: Text('Water Baddies'),
-            leading: Builder(
-              builder: (BuildContext context) {
-                return IconButton(  
-                  icon: const Icon(Icons.bluetooth),
-                  onPressed: () {
-                    Scaffold.of(context).openDrawer();
-                  },
-                  tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
-                );
-              },
-            ),
-            backgroundColor: Theme.of(context).colorScheme.primary,
+    return Scaffold(
+      drawer: BluetoothBar(),
+      appBar: AppBar(
+        title: Text(pageTitles[currentPageIndex]),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.bluetooth),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
           ),
-          bottomNavigationBar: NavigationBar(
-            labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-            selectedIndex: currentPageIndex,
-            onDestinationSelected: (int index) {
-              setState(() {
-                currentPageIndex = index;
-              });
-            },
-            destinations: const <Widget>[
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                label: 'Home',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.history),
-                label: 'History',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.bar_chart_rounded),
-                label: 'Analytics',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.info_outline),
-                label: 'About',
-              ),
-            ],
-          ),
-          body: Row(
-            children: [
-              Expanded(
-                child: Container(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  child: page,
-                ),
-              ),
-            ],
-          ),
-        );
-      }
+        ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+        selectedIndex: currentPageIndex,
+        onDestinationSelected: (index) => setState(() => currentPageIndex = index),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Info'),
+          NavigationDestination(icon: Icon(Icons.history), label: 'History'),
+          NavigationDestination(icon: Icon(Icons.bar_chart_rounded), label: 'Analytics'),
+          NavigationDestination(icon: Icon(Icons.info_outline), label: 'About'),
+        ],
+      ),
+      body: pages[currentPageIndex],
     );
   }
 }

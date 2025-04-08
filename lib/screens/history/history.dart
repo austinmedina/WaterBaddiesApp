@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../../utils/utils.dart';
 
 class History extends StatefulWidget {
   const History({super.key});
@@ -34,15 +35,6 @@ class _HistoryState extends State<History> {
       'Nitrate': data['Nitrate'] ?? 0.0,
       'Phosphate': data['Phosphate'] ?? 0.0,
       'Microplastics': data['Microplastic'] ?? 0.0,
-    };
-
-    const epaLimits = {
-      'Mercury': 0.002,
-      'Lead': 0.015,
-      'Cadmium': 0.005,
-      'Nitrate': 10.0,
-      'Phosphate': 1.0,
-      'Microplastics': 0.0,
     };
 
     final date = data['Date'] ?? 'Unknown Date';

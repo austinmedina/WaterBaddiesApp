@@ -276,11 +276,13 @@ class _BluetoothBarState extends State<BluetoothBar> {
       child: _isLoading // Show a loading indicator while data is loading
         ? const Center(child: CircularProgressIndicator())
         : ListView(
-        padding: EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+        padding: EdgeInsets.symmetric(vertical: 0, horizontal: 0),
         controller: scrollCont,
         children: <Widget>[
           DrawerHeader(
-            decoration: BoxDecoration(color: Color(0xff1E90FF),),
+            decoration: BoxDecoration(
+              color: const Color.fromARGB(255, 4, 63, 122),
+            ),
             child: Column(
               children: [
                 Text(

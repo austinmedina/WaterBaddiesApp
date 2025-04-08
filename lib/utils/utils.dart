@@ -7,7 +7,7 @@ class BooleanWrapper {
   BooleanWrapper(this.value);
 }
 
-Map<String, double> maxQuantities = {
+const maxQuantities = {
   'Cadmium': 90.0,
   'Mercury': 95.0,
   'Lead': 60.0,
@@ -16,20 +16,14 @@ Map<String, double> maxQuantities = {
   'Microplastic': 110.0,
 };
 
-// Future<UserCredential> signInWithGoogle() async {
-//   try {
-//     final GoogleSignInAccount? googleSignInAccount = await GoogleSignIn().signIn();
-//     final GoogleSignInAuthentication googleSignInAuthentication = await googleSignInAccount!.authentication;
-//     final OAuthCredential credential = GoogleAuthProvider.credential(
-//       accessToken: googleSignInAuthentication.accessToken,
-//       idToken: googleSignInAuthentication.idToken,
-//     );
-//     return await FirebaseAuth.instance.signInWithCredential(credential);
-//   } catch (e) {
-//     print("Error signing in with Google: $e");
-//     throw e; // Rethrow the error to be handled in the calling function
-//   }
-// }
+const epaLimits = {
+  'Mercury': 0.002,
+  'Lead': 0.015,
+  'Cadmium': 0.005,
+  'Nitrate': 10.0,
+  'Phosphate': 1.0,
+  'Microplastics': 1,
+};
 
 Future<UserCredential> signInWithGoogle() async {
   try {
