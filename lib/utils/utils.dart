@@ -7,7 +7,7 @@ class BooleanWrapper {
   BooleanWrapper(this.value);
 }
 
-const epaLimits = {
+Map<String, double> epaLimits = {
   'Nitrite': 1.0,
   'Lead': 0.01,
   'Cadmium': 0.005,

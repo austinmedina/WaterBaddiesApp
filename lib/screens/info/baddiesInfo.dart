@@ -355,7 +355,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
   List<String> _checkData(Map<String, double> newData) {
     List<String> warningMessages = [];
     newData.forEach((key, value) {
-      num? max = epaLimits[key];
+      double? max = epaLimits[key];
 
       if (max != null && value > max) {
         warningMessages.add("High Levels of $key");
@@ -368,21 +368,14 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
   Map<String, double> generateRandomData() {
     final Random random = Random(); // Create a Random object
 
-    // Generate random numbers between 120.00 and 150.00
-    double generateRandomValue() {
-      return 120.00 + random.nextDouble() * (150.00 - 120.00);
-    }
-
-    Map<String, double> _characteristicsData = {};
-
-    _characteristicsData['Lead'] = generateRandomValue();
-    _characteristicsData['Cadmium'] = generateRandomValue();
-    _characteristicsData['Nitrite'] = generateRandomValue();
-    _characteristicsData['Phosphate'] = generateRandomValue();
-    _characteristicsData['Nitrate'] = generateRandomValue();
-    _characteristicsData['Microplastic'] = generateRandomValue();
-
-    return _characteristicsData;
+    return {
+      'Nitrite': epaLimits['Nitrite']! * (0.5 + random.nextDouble()),
+      'Lead': epaLimits['Lead']! * (0.5 + random.nextDouble()),
+      'Cadmium': epaLimits['Cadmium']! * (0.5 + random.nextDouble()),
+      'Nitrate': epaLimits['Nitrate']! * (0.5 + random.nextDouble()),
+      'Phosphate': epaLimits['Phosphate']! * (0.5 + random.nextDouble()),
+      'Microplastics': epaLimits['Microplastics']! * (0.5 + random.nextDouble()),
+    };
   }
   
   void _updateDisplayedData(BuildContext context) {
