@@ -150,22 +150,22 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
     //todo: Update the newData to fetch more specific than 'Inorganics' and 'Metals'
     List<String> warningMessages = [];
 
-    if (newData.containsKey('Microplastic') && newData['Microplastic']! > maxQuantities['Microplastic']!) {
+    if (newData.containsKey('Microplastic') && newData['Microplastic']! > epaLimits['Microplastic']!) {
       warningMessages.add("Microplastic");
     }
-    if (newData.containsKey('Lead') && newData['Lead']! > maxQuantities['Lead']!) {
+    if (newData.containsKey('Lead') && newData['Lead']! > epaLimits['Lead']!) {
       warningMessages.add("Lead");
     }
-    if (newData.containsKey('Cadmium') && newData['Cadmium']! > maxQuantities['Cadmium']!) {
+    if (newData.containsKey('Cadmium') && newData['Cadmium']! > epaLimits['Cadmium']!) {
       warningMessages.add("Cadmium");
     }
-    if (newData.containsKey('Mercury') && newData['Mercury']! > maxQuantities['Mercury']!) {
-      warningMessages.add("Mercury");
+    if (newData.containsKey('Nitrite') && newData['Nitrite']! > epaLimits['Nitrite']!) {
+      warningMessages.add("Nitrite");
     }
-    if (newData.containsKey('Phosphate') && newData['Phosphate']! > maxQuantities['Phosphate']!) {
+    if (newData.containsKey('Phosphate') && newData['Phosphate']! > epaLimits['Phosphate']!) {
       warningMessages.add("Phosphate");
     }
-    if (newData.containsKey('Nitrate') && newData['Nitrate']! > maxQuantities['Nitrate']!) {
+    if (newData.containsKey('Nitrate') && newData['Nitrate']! > epaLimits['Nitrate']!) {
       warningMessages.add("Nitrate");
     }
     return warningMessages;
@@ -194,8 +194,8 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
       if (newData.containsKey("Cadmium") && newData["Cadmium"] != null) {
         newEntry["Cadmium"] = newData["Cadmium"];
       }
-      if (newData.containsKey("Mercury") && newData["Mercury"] != null) {
-        newEntry["Mercury"] = newData["Mercury"];
+      if (newData.containsKey("Nitrite") && newData["Nitrite"] != null) {
+        newEntry["Nitrite"] = newData["Nitrite"];
       }
       if (newData.containsKey("Phosphate") && newData["Phosphate"] != null) {
         newEntry["Phosphate"] = newData["Phosphate"];
@@ -355,7 +355,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
   List<String> _checkData(Map<String, double> newData) {
     List<String> warningMessages = [];
     newData.forEach((key, value) {
-      double? max = maxQuantities[key];
+      num? max = epaLimits[key];
 
       if (max != null && value > max) {
         warningMessages.add("High Levels of $key");
@@ -377,7 +377,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
 
     _characteristicsData['Lead'] = generateRandomValue();
     _characteristicsData['Cadmium'] = generateRandomValue();
-    _characteristicsData['Mercury'] = generateRandomValue();
+    _characteristicsData['Nitrite'] = generateRandomValue();
     _characteristicsData['Phosphate'] = generateRandomValue();
     _characteristicsData['Nitrate'] = generateRandomValue();
     _characteristicsData['Microplastic'] = generateRandomValue();
@@ -514,7 +514,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                         Column(
                           children: [
                             InfoCard(
-                              key: ValueKey("Metals${_displayedData["Lead"]}${_displayedData["Cadmium"]}${_displayedData["Mercury"]}"),
+                              key: ValueKey("Metals${_displayedData["Lead"]}${_displayedData["Cadmium"]}"),
                               showChart: showMetalChart,
                               showInfo: showMetalInfo,
                               cardTitle: "Metals",
@@ -524,19 +524,13 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                                       if (_displayedData.containsKey("Cadmium"))
                                         {
                                           'name': 'Cadmium',
-                                          'maxQuantity': maxQuantities['Cadmium'],
+                                          'maxQuantity': epaLimits['Cadmium'],
                                           'quantity': _displayedData["Cadmium"],
-                                        },
-                                      if (_displayedData.containsKey("Mercury"))
-                                        {
-                                          'name': 'Mercury',
-                                          'maxQuantity': maxQuantities['Mercury'],
-                                          'quantity': _displayedData["Mercury"],
                                         },
                                       if (_displayedData.containsKey("Lead"))
                                         {
                                           'name': 'Lead',
-                                          'maxQuantity': maxQuantities['Lead'],
+                                          'maxQuantity': epaLimits['Lead'],
                                           'quantity': _displayedData["Lead"],
                                         },
                                     ].where((element) => element.isNotEmpty).toList(),
@@ -544,29 +538,29 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                               imagePath: '',
                             ),
                             InfoCard(
-                              key: ValueKey("Inorganics${_displayedData["Phosphate"]}${_displayedData["Nitrate"]}"),
+                              key: ValueKey("Inorganics${_displayedData["Nitrite"]}${_displayedData["Phosphate"]}${_displayedData["Nitrate"]}"),
                               showChart: showInorganicsChart,
                               showInfo: showInorganicsInfo,
                               cardTitle: "Inorganics",
                               barChartData: _displayedData.isEmpty
                                   ? []
                                   : [
-                                      if (_displayedData.containsKey("Phosphate"))
+                                      if (_displayedData.containsKey("Nitrite"))
                                         {
-                                          'name': 'Phosphate',
-                                          'maxQuantity': maxQuantities['Phosphate'],
-                                          'quantity': _displayedData["Phosphate"],
+                                          'name': 'Nitrite',
+                                          'maxQuantity': epaLimits['Nitrite'],
+                                          'quantity': _displayedData["Nitrite"],
                                         },
                                       if (_displayedData.containsKey("Nitrate"))
                                         {
                                           'name': 'Nitrates',
-                                          'maxQuantity': maxQuantities['Nitrate'],
+                                          'maxQuantity': epaLimits['Nitrate'],
                                           'quantity': _displayedData["Nitrate"],
                                         },
                                       if (_displayedData.containsKey("Phosphate"))
                                         {
                                           'name': 'Phosphates',
-                                          'maxQuantity': maxQuantities['Phosphate'],
+                                          'maxQuantity': epaLimits['Phosphate'],
                                           'quantity': _displayedData["Phosphate"],
                                         },
                                     ].where((element) => element.isNotEmpty).toList(),
@@ -584,7 +578,7 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                                       ? [
                                           {
                                             'name': 'Microplastics',
-                                            'maxQuantity': maxQuantities['Microplastic'],
+                                            'maxQuantity': epaLimits['Microplastic'],
                                             'quantity': _displayedData["Microplastic"]
                                           }
                                         ]

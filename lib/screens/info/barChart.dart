@@ -57,7 +57,7 @@ class _BarChartState extends State<BarChart> {
       ),
       primaryYAxis: NumericAxis(
         axisLabelFormatter: (AxisLabelRenderDetails args) {
-          return ChartAxisLabel(args.text + ' parts/billion', args.textStyle);
+          return ChartAxisLabel(args.text + ' parts/million', args.textStyle);
         },
         maximum: maxY,
       ),

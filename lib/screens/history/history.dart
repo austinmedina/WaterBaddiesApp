@@ -29,7 +29,7 @@ class _HistoryState extends State<History> {
     final pdf = pw.Document();
 
     final concentrations = {
-      'Mercury': data['Mercury'] ?? 0.0,
+      'Nitrite': data['Nitrite'] ?? 0.0,
       'Lead': data['Lead'] ?? 0.0,
       'Cadmium': data['Cadmium'] ?? 0.0,
       'Nitrate': data['Nitrate'] ?? 0.0,
@@ -184,7 +184,7 @@ class _HistoryState extends State<History> {
                     children: [
                       _buildKeyValueRow('Lead', item),
                       _buildKeyValueRow('Cadmium', item),
-                      _buildKeyValueRow('Mercury', item),
+                      _buildKeyValueRow('Nitrite', item),
                       _buildKeyValueRow('Nitrate', item),
                       _buildKeyValueRow('Phosphate', item),
                       _buildKeyValueRow('Microplastic', item),

@@ -7,22 +7,13 @@ class BooleanWrapper {
   BooleanWrapper(this.value);
 }
 
-const maxQuantities = {
-  'Cadmium': 90.0,
-  'Mercury': 95.0,
-  'Lead': 60.0,
-  'Phosphate': 75.0,
-  'Nitrate': 80.0,
-  'Microplastic': 110.0,
-};
-
 const epaLimits = {
-  'Mercury': 0.002,
-  'Lead': 0.015,
+  'Nitrite': 1.0,
+  'Lead': 0.01,
   'Cadmium': 0.005,
   'Nitrate': 10.0,
   'Phosphate': 1.0,
-  'Microplastics': 1,
+  'Microplastics': 1.0,
 };
 
 Future<UserCredential> signInWithGoogle() async {

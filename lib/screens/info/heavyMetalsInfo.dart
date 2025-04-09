@@ -13,7 +13,6 @@ class _HeavyMetalsInfoState extends State<HeavyMetalsInfo> {
   final Map<String, String> metalInfo = {
     'Lead': "EPA Standard: 5.0 mg/L \nLead exposure can cause neurological damage, especially in children. Sources include old lead-based paint, industrial emissions, and contaminated water pipes.",
     'Cadmium': "EPA Standard: 1.0 mg/L\nCadmium exposure is linked to kidney damage and lung disease. It is commonly deposited in water systems through in groundwater contamination, pesticides, industrial waste.",
-    'Mercury': "EPA Standard: 0.2 mg/L\nMercury exposure can affect the nervous system, especially in unborn babies and young children. It is commonly found in certain fish and industrial emissions.",
   };
 
   @override

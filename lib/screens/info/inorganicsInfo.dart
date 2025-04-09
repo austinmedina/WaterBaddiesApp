@@ -115,7 +115,6 @@ class _InorganicssInfoState extends State<InorganicsInfo> {
                 buildSectionTitle("Inorganics"),
                 buildText("Nitrite and nitrate ions are a part of the earth’s nitrogen cycle, they naturally occur in the soil and water environments. These inorganics are also released through human made products like fertilizers, waste water treatment facilities’ runoff."),
                 buildText("Excessive nitrate consumption can interfere with the blood’s ability to carry oxygen, leading to methemoglobinemia, also known as blue baby syndrome. Bottle-fed infants under six months old are most vulnerable to this condition, which can cause serious illness or even death. Recent scientific studies suggest that long-term exposure to nitrate in drinking water, even at levels below the current regulatory standard, may be linked to thyroid disorders, adverse pregnancy outcomes, and certain cancers, particularly colorectal cancer. Further research is needed to confirm these findings."),
-                
               ], 
             ),
           ),

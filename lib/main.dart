@@ -74,7 +74,7 @@ class WaterBaddiesApp extends StatelessWidget {
 ///The [WaterBaddiesState] is a general state for the entire app
 ///The state stores the currently connected [device] which should be the Raspberry Pi
 ///When the device is initially connected [fetchCharacteristics] is run to get all of the characteristics of the bluetooth service
-///In the bluetoth characteristics are the values of each of the baddies (mercury, lead, cadmium, nitrate, phosphate, and microplastics), along with each of their descriptors
+///In the bluetoth characteristics are the values of each of the baddies (nitrie, lead, cadmium, nitrate, phosphate, and microplastics), along with each of their descriptors
 ///The [subscriptions] map is created which stores listeners who listen for updates in the values on each of the characteristics
 class WaterBaddiesState extends ChangeNotifier {
   BluetoothDevice? _device;
@@ -157,7 +157,7 @@ class WaterBaddiesState extends ChangeNotifier {
       "00000002-110e-4a5b-8d75-3e5b444bc3cf", //Microplastic
       "00000002-210e-4a5b-8d75-3e5b444bc3cf", //Lead
       "00000002-310e-4a5b-8d75-3e5b444bc3cf", //Cadmium
-      "00000002-410e-4a5b-8d75-3e5b444bc3cf", //Mercury
+      "00000002-410e-4a5b-8d75-3e5b444bc3cf", //Nitrite
       "00000002-510e-4a5b-8d75-3e5b444bc3cf", //Phosphate
       "00000002-610e-4a5b-8d75-3e5b444bc3cf", //Nitrate
       "00000002-710e-4a5b-8d75-3e5b444bc3cf", //ChangeKey
