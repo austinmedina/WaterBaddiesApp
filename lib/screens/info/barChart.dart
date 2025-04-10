@@ -181,7 +181,7 @@ class _ColumnSegment extends ColumnSegment<Map, String> {
 
       TextPainter label = TextPainter(
         text: TextSpan(
-          text: "EPA Maximum Value",
+          text: "EPA Max Value",
           style: const TextStyle(color: Color.fromARGB(203, 112, 19, 12), fontSize: 12),
         ),
         textDirection: TextDirection.ltr,

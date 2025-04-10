@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/utils.dart';
 import 'barChart.dart';
-import 'infoUtils.dart';
 import 'heavyMetalsInfo.dart';
 import 'inorganicsInfo.dart';
 import 'microplasticsInfo.dart';
@@ -13,16 +12,12 @@ class InfoCard extends StatefulWidget {
     required this.showInfo,
     required this.cardTitle,
     required this.barChartData,
-    this.content = const [],
-    this.imagePath = '',
   });
 
   final BooleanWrapper showChart;
   final BooleanWrapper showInfo;
   final String cardTitle;
   final List<Map<String, dynamic>> barChartData;
-  final List<Map<String, dynamic>> content;
-  final String imagePath;
 
   @override
   State<InfoCard> createState() => InfoCardState();
@@ -83,10 +78,8 @@ class InfoCardState extends State<InfoCard> {
   }
 
   Widget _buildInfoContent() {
-    final List<Map<String, dynamic>> contentData = widget.content;
     return Column(
       children: [
-        Image.asset(widget.imagePath, fit: BoxFit.contain),
         Padding(
           padding: const EdgeInsets.all(8.0),
           child: Text(
@@ -94,21 +87,6 @@ class InfoCardState extends State<InfoCard> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: contentData.map((item) {
-            switch (item["type"]) {
-              case "section":
-                return buildSectionTitle(item["text"]);
-              case "subsection":
-                return buildSubSectionTitle(item["text"]);
-              case "text":
-                return buildText(item["text"]);
-              default:
-                return SizedBox.shrink();
-            }
-          }).toList(),
         ),
       ],
     );

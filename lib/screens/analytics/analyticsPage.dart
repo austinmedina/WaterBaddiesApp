@@ -160,7 +160,7 @@ class AnalyticsView extends StatelessWidget {
                           : Colors.green,
                 ),
                 title: Text(
-                  'Drinkable Water Percentage',
+                  'Percentage Of Drinkable Water',
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium

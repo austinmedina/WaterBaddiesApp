@@ -13,7 +13,7 @@ Map<String, double> epaLimits = {
   'Cadmium': 0.005,
   'Nitrate': 10.0,
   'Phosphate': 1.0,
-  'Microplastics': 1.0,
+  'Microplastic': 1.0,
 };
 
 Future<UserCredential> signInWithGoogle() async {

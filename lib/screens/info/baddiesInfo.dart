@@ -374,24 +374,25 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
       'Cadmium': epaLimits['Cadmium']! * (0.5 + random.nextDouble()),
       'Nitrate': epaLimits['Nitrate']! * (0.5 + random.nextDouble()),
       'Phosphate': epaLimits['Phosphate']! * (0.5 + random.nextDouble()),
-      'Microplastics': epaLimits['Microplastics']! * (0.5 + random.nextDouble()),
+      'Microplastic': epaLimits['Microplastic']! * (0.5 + random.nextDouble()),
     };
   }
   
   void _updateDisplayedData(BuildContext context) {
     //final newData = wbState.characteristicsData;
     final newData = generateRandomData();
+    final trimmedData = newData.map((key, value) => MapEntry(key, double.parse(value.toStringAsFixed(2))));
     wbState.newDataAvailable = true;
-    addHistory(newData);
+    addHistory(trimmedData);
     setState(() {
-      List<String> warningMessages = _checkData(newData);
+      List<String> warningMessages = _checkData(trimmedData);
       if (warningMessages.isNotEmpty) {
         _showWarningDialog(context, warningMessages);
         Vibration.vibrate(pattern: [500, 1000, 500, 2000]);
         String fullMessage = warningMessages.join(". ");
         _speak(fullMessage);
       }
-      _displayedData = Map.from(newData);
+      _displayedData = Map.from(trimmedData);
       wbState.newDataAvailable = false;
     });
   }
@@ -431,10 +432,6 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: IntrinsicHeight(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -493,11 +490,11 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                                   onPressed: () async {
                                     await _uploadOfflineData();
                                   },
-                                  child: const Text("Upload Data"),
                                   style: TextButton.styleFrom(
                                     foregroundColor: Theme.of(context).primaryColor,
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                   ),
+                                  child: Text("Upload Data"),
                                 ),
                               );
                             }
@@ -527,8 +524,6 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                                           'quantity': _displayedData["Lead"],
                                         },
                                     ].where((element) => element.isNotEmpty).toList(),
-                              content: [],
-                              imagePath: '',
                             ),
                             InfoCard(
                               key: ValueKey("Inorganics${_displayedData["Nitrite"]}${_displayedData["Phosphate"]}${_displayedData["Nitrate"]}"),
@@ -557,8 +552,6 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                                           'quantity': _displayedData["Phosphate"],
                                         },
                                     ].where((element) => element.isNotEmpty).toList(),
-                              content: [],
-                              imagePath: '',
                             ),
                             InfoCard(
                               key: ValueKey("Microplastics${_displayedData["Microplastic"]}"),
@@ -576,8 +569,6 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                                           }
                                         ]
                                       : [],
-                              content: [],
-                              imagePath: '',
                             ),
                           ],
                         ),
@@ -586,8 +577,6 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                     const SizedBox(height: 0),
                   ],
                 ),
-              ),
-            ),
           );
         },
       ),
