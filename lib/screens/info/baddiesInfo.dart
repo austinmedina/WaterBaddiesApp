@@ -379,8 +379,8 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
   }
   
   void _updateDisplayedData(BuildContext context) {
-    //final newData = wbState.characteristicsData;
-    final newData = generateRandomData();
+    final newData = wbState.characteristicsData;
+    //final newData = generateRandomData();
     final trimmedData = newData.map((key, value) => MapEntry(key, double.parse(value.toStringAsFixed(2))));
     wbState.newDataAvailable = true;
     addHistory(trimmedData);
@@ -471,10 +471,11 @@ class _WaterBaddiesInfoState extends State<WaterBaddiesInfo> {
                                       ),
                                     ),
                                   ),
-                                ElevatedButton(
-                                  onPressed: () => _updateDisplayedData(context),
-                                  child: const Text("Fetch New Data"),
-                                ),
+                                if (hasNewData)
+                                  ElevatedButton(
+                                    onPressed: () => _updateDisplayedData(context),
+                                    child: const Text("Fetch New Data"),
+                                  ),
                               ],
                             );
                           },

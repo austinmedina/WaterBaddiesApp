@@ -78,6 +78,7 @@ class WaterBaddiesApp extends StatelessWidget {
 ///The [subscriptions] map is created which stores listeners who listen for updates in the values on each of the characteristics
 class WaterBaddiesState extends ChangeNotifier {
   BluetoothDevice? _device;
+  String? _deviceName;
   String changeKey = "";
   String _connectionMessage = "Please Connect a Bluetooth Device";
   bool newDataAvailable = false;
@@ -88,11 +89,18 @@ class WaterBaddiesState extends ChangeNotifier {
   List<BluetoothCharacteristic> characteristics = [];
   List<dynamic> readingSubs = [];
 
+  String? get deviceName => _deviceName;
+
+  set deviceName(String? name) {
+    _deviceName = name;
+  }
+
   BluetoothDevice? get device => _device;
 
   set device(BluetoothDevice? newDevice) {
     _device = newDevice;
     if (newDevice != null) { // Only fetch characteristics if newDevice is not null
+      
       createConnectionSubscription();
       fetchCharacteristics(_device!);
       startFetchingData();

@@ -76,6 +76,7 @@ class _BluetoothBarState extends State<BluetoothBar> {
 
   void getConnectedDevice() {
     final device = Provider.of<WaterBaddiesState>(context, listen: false).device;
+    final name = Provider.of<WaterBaddiesState>(context, listen: false).deviceName;
     if (device != null) {
       _device = device;
       _isConnected = true;
@@ -83,19 +84,11 @@ class _BluetoothBarState extends State<BluetoothBar> {
         setState(() {
           if (state == BluetoothConnectionState.disconnected) {
             _isConnected = false;
-            Future<String> platformNameFuture = device.platformName == ""
-              ? getPlatfromName(device.remoteId.str)
-              : Future.value(device.platformName);
-
-          platformNameFuture.then((platformName) {
-            setState(() {
-              connectedMessage = "Disconnected from $platformName";
-            });
-          });
+            connectedMessage = "Disconnected from $name";
           } else if (state == BluetoothConnectionState.connected) {
             setState(() {
               _isConnected = true;
-              connectedMessage = "Connected to ${device.platformName}";
+              connectedMessage = "Connected to $name";
             });
           }
         });
@@ -111,7 +104,7 @@ class _BluetoothBarState extends State<BluetoothBar> {
       // Handle error, e.g., show a snackbar
     } finally {
       setState(() {
-        _isLoading = false; // Set loading to false after completion
+        _isLoading = false;
       });
     }
   }
@@ -203,7 +196,7 @@ class _BluetoothBarState extends State<BluetoothBar> {
 
   }
 
-  void connectDevice(BluetoothDevice device) async {
+  void connectDevice(BluetoothDevice device, {String deviceName = ""}) async {
     try {
       setState(() {
         _isConnecting = true;
@@ -211,6 +204,12 @@ class _BluetoothBarState extends State<BluetoothBar> {
       await device.connect();
       if (mounted) {
         Provider.of<WaterBaddiesState>(context, listen: false).device = device;
+        if (deviceName != "") {
+          Provider.of<WaterBaddiesState>(context, listen: false).deviceName = deviceName;
+        } else {
+          Provider.of<WaterBaddiesState>(context, listen: false).deviceName = device.platformName;
+        }
+
       }
 
       saveDeviceInfo(device.remoteId.toString(), device.platformName);
@@ -219,20 +218,36 @@ class _BluetoothBarState extends State<BluetoothBar> {
         setState(() {
           if (state == BluetoothConnectionState.disconnected) {
             _isConnected = false;
-            Future<String> platformNameFuture = device.platformName == ""
+            String platformName = "";
+            Future<String> platformNameFuture;
+            if (deviceName != "") {
+              platformName = deviceName;
+            } else {
+              platformNameFuture = device.platformName == ""
               ? getPlatfromName(device.remoteId.str)
               : Future.value(device.platformName);
 
-          platformNameFuture.then((platformName) {
+              platformNameFuture.then((platformNameFuture) {
+                platformName = platformNameFuture;
+              });
+            } 
+
             setState(() {
-              connectedMessage = "Disconnected from $platformName";
-            });
-          });
+                connectedMessage = "Disconnected from $platformName";
+              });
           } else if (state == BluetoothConnectionState.connected) {
-            setState(() {
-              _isConnected = true;
-              connectedMessage = "Connected to ${device.platformName}";
-            });
+            if (deviceName != "") {
+              setState(() {
+                _isConnected = true;
+                connectedMessage = "Connected to $deviceName";
+              });
+            } else {
+              setState(() {
+                _isConnected = true;
+                connectedMessage = "Connected to ${device.platformName}";
+              });
+            }
+            
           }
         });
       });
@@ -313,7 +328,7 @@ class _BluetoothBarState extends State<BluetoothBar> {
                   } else if (snapshot.hasError) {
                     return Text("Error: ${snapshot.error}");
                   } else {
-                    return Text("Connected to ${snapshot.data}");
+                    return Text(connectedMessage);
                   }
                 },
               ),
@@ -327,58 +342,79 @@ class _BluetoothBarState extends State<BluetoothBar> {
                 title: Text(statusMessage),
                 subtitle: Text(connectedMessage),
               ),
-              if (previouslyConnectedDevices.isNotEmpty)
-                ListView.builder(
-                  itemCount: previouslyConnectedDevices.length,
-                  shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
-                  itemBuilder: (context, index) {
-                    // Convert the map into a list of key-value pairs (remoteId, name)
-                    String remoteId = previouslyConnectedDevices.keys.elementAt(index);
-                    String name = previouslyConnectedDevices[remoteId]!;
+              // if (previouslyConnectedDevices.isNotEmpty)
+              //   ListView.builder(
+              //     itemCount: previouslyConnectedDevices.length,
+              //     shrinkWrap: true,
+              //     physics: NeverScrollableScrollPhysics(),
+              //     itemBuilder: (context, index) {
+              //       // Convert the map into a list of key-value pairs (remoteId, name)
+              //       String remoteId = previouslyConnectedDevices.keys.elementAt(index);
+              //       String name = previouslyConnectedDevices[remoteId]!;
 
-                    
+              //       return Card(
+              //         elevation: 2,
+              //         child: ListTile(
+              //           title: Text(name),
+              //           subtitle: Text(remoteId),
+              //           trailing: _isConnecting
+              //               ? const SizedBox(
+              //                   height: 24,
+              //                   width: 24,
+              //                   child: CircularProgressIndicator(strokeWidth: 2.0),
+              //                 )
+              //               : null,
+              //           onTap: () {
+              //             _isConnecting ? null : connectDevice(BluetoothDevice.fromId(remoteId));
+              //           },
+              //         ),
+              //       );
+              //     },
+              //   ),
+              Card(
+                elevation: 2,
+                child: ListTile(
+                  title: Text("BaddiesDetectionSystem"),
+                  subtitle: Text("2C:CF:67:04:32:54"),
+                  trailing: _isConnecting
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2.0),
+                        )
+                      : null,
+                  onTap: () {
+                    _isConnecting ? null : connectDevice(BluetoothDevice.fromId("2C:CF:67:04:32:54"), deviceName: "BaddiesDetectionSystem");
+                  },
+                ),
+              ),
+              _scanResults.isEmpty
+              ? Center(child: ListTile(title: Text('No devices found')))
+              : ListView.builder(
+                itemCount: _scanResults.length,
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                itemBuilder: (context, index) {
+                  final data = _scanResults[index];
+                  // Only display the item if platformName is not empty
+                  if (data.device.platformName.isNotEmpty) {
                     return Card(
                       elevation: 2,
                       child: ListTile(
-                        title: Text(name),
-                        subtitle: Text(remoteId),
-                        trailing: _isConnecting
-                            ? const SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(strokeWidth: 2.0),
-                              )
-                            : null,
+                        title: Text(data.device.platformName),
+                        subtitle: Text(data.device.remoteId.str),
+                        trailing: Text(data.rssi.toString()),
                         onTap: () {
-                          _isConnecting ? null : connectDevice(BluetoothDevice.fromId(remoteId));
+                          scrollCont.jumpTo(0.0);
+                          connectDevice(data.device);
                         },
                       ),
                     );
-                  },
-                ),
-              _scanResults.isEmpty
-                ? Center(child: ListTile(title: Text('No devices found')))
-                : ListView.builder(
-                    itemCount: _scanResults.length,
-                    shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
-                    itemBuilder: (context, index) {
-                      final data = _scanResults[index];
-                      return Card(
-                        elevation: 2,
-                        child: ListTile(
-                          title: Text(data.device.platformName),
-                          subtitle: Text(data.device.remoteId.str),
-                          trailing: Text(data.rssi.toString()),
-                          onTap: () {
-                            scrollCont.jumpTo(0.0);
-                            connectDevice(data.device);
-                          },
-                        ),
-                      );
-                    },
-                  ),
+                  }
+                  // Return an empty widget for devices without a platform name
+                  return SizedBox.shrink();
+                },
+              ),
             ],
       ),
     );
